@@ -1,0 +1,565 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================
+
+model User {
+  id                    Int       @id @default(autoincrement())
+  email                 String    @unique
+  passwordHash          String
+  fullName              String
+  isActive              Boolean   @default(true)
+  failedLoginAttempts   Int       @default(0)
+  lockedUntil           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  userRoles             UserRole[]
+  employee              Employee?
+  auditLogs             AuditLog[]
+  
+  @@index([email])
+  @@map("users")
+}
+
+model Role {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique // ADMIN, HR, TEAM_LEAD, EMPLOYEE
+  description String?
+  createdAt   DateTime   @default(now())
+  
+  // Relations
+  userRoles   UserRole[]
+  
+  @@map("roles")
+}
+
+model UserRole {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  roleId    Int
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ============================================
+// EMPLOYEE MASTER DATA
+// ============================================
+
+model Employee {
+  id                    Int       @id @default(autoincrement())
+  userId                Int       @unique
+  employeeCode          String    @unique
+  firstName             String
+  middleName            String?
+  lastName              String
+  dateOfBirth           DateTime
+  gender                String    // MALE, FEMALE, OTHER
+  maritalStatus         String?   // SINGLE, MARRIED, DIVORCED, WIDOWED
+  personalEmail         String?
+  personalPhone         String
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  
+  // Address
+  currentAddress        String?
+  permanentAddress      String?
+  city                  String?
+  state                 String?
+  pincode               String?
+  
+  // Employment Details
+  dateOfJoining         DateTime
+  dateOfLeaving         DateTime?
+  employmentType        String    // FULL_TIME, PART_TIME, CONTRACT, INTERN
+  designation           String
+  department            String
+  reportingManagerId    Int?
+  
+  // Statutory Details
+  panNumber             String?   @unique
+  aadharNumber          String?   @unique
+  uanNumber             String?   @unique
+  esicNumber            String?   @unique
+  
+  // Bank Details
+  bankName              String?
+  bankAccountNumber     String?
+  bankIfscCode          String?
+  bankBranch            String?
+  
+  // Status
+  status                String    @default("DRAFT") // DRAFT, PUBLISHED, INACTIVE
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportingManager      Employee? @relation("EmployeeHierarchy", fields: [reportingManagerId], references: [id])
+  subordinates          Employee[] @relation("EmployeeHierarchy")
+  
+  salary                EmployeeSalary?
+  salaryHistory         SalaryHistory[]
+  leaveBalances         EmployeeLeaveBalance[]
+  leaveApplications     LeaveApplication[]
+  compOffRecords        CompOffRecord[]
+  payrollRecords        PayrollRecord[]
+  
+  @@index([employeeCode])
+  @@index([userId])
+  @@index([reportingManagerId])
+  @@index([status])
+  @@map("employees")
+}
+
+// ============================================
+// SALARY MANAGEMENT
+// ============================================
+
+model EmployeeSalary {
+  id                    Int       @id @default(autoincrement())
+  employeeId            Int       @unique
+  
+  // CTC Breakdown (Annual)
+  ctcAnnual             Decimal   @db.Decimal(12, 2)
+  basicSalary           Decimal   @db.Decimal(12, 2)
+  hra                   Decimal   @db.Decimal(12, 2)
+  conveyanceAllowance   Decimal   @db.Decimal(12, 2)
+  medicalAllowance      Decimal   @db.Decimal(12, 2)
+  specialAllowance      Decimal   @db.Decimal(12, 2)
+  otherAllowances       Decimal   @db.Decimal(12, 2) @default(0)
+  
+  // Deductions
+  providentFund         Decimal   @db.Decimal(12, 2)
+  esi                   Decimal   @db.Decimal(12, 2) @default(0)
+  professionalTax       Decimal   @db.Decimal(12, 2) @default(0)
+  incomeTax             Decimal   @db.Decimal(12, 2) @default(0)
+  otherDeductions       Decimal   @db.Decimal(12, 2) @default(0)
+  
+  // Net Salary
+  netSalaryAnnual       Decimal   @db.Decimal(12, 2)
+  netSalaryMonthly      Decimal   @db.Decimal(12, 2)
+  
+  effectiveFrom         DateTime
+  effectiveTo           DateTime?
+  isActive              Boolean   @default(true)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  employee              Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  @@index([employeeId])
+  @@index([isActive])
+  @@map("employee_salaries")
+}
+
+model SalaryHistory {
+  id                    Int       @id @default(autoincrement())
+  employeeId            Int
+  
+  // Salary Details (same structure as EmployeeSalary)
+  ctcAnnual             Decimal   @db.Decimal(12, 2)
+  basicSalary           Decimal   @db.Decimal(12, 2)
+  hra                   Decimal   @db.Decimal(12, 2)
+  conveyanceAllowance   Decimal   @db.Decimal(12, 2)
+  medicalAllowance      Decimal   @db.Decimal(12, 2)
+  specialAllowance      Decimal   @db.Decimal(12, 2)
+  otherAllowances       Decimal   @db.Decimal(12, 2) @default(0)
+  providentFund         Decimal   @db.Decimal(12, 2)
+  esi                   Decimal   @db.Decimal(12, 2) @default(0)
+  professionalTax       Decimal   @db.Decimal(12, 2) @default(0)
+  incomeTax             Decimal   @db.Decimal(12, 2) @default(0)
+  otherDeductions       Decimal   @db.Decimal(12, 2) @default(0)
+  netSalaryAnnual       Decimal   @db.Decimal(12, 2)
+  netSalaryMonthly      Decimal   @db.Decimal(12, 2)
+  
+  effectiveFrom         DateTime
+  effectiveTo           DateTime?
+  reason                String?   // REVISION, PROMOTION, INCREMENT
+  
+  createdAt             DateTime  @default(now())
+  
+  // Relations
+  employee              Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  @@index([employeeId])
+  @@map("salary_history")
+}
+
+// ============================================
+// LEAVE MANAGEMENT
+// ============================================
+
+model LeaveTemplate {
+  id                    Int       @id @default(autoincrement())
+  name                  String    @unique
+  description           String?
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  leaveTypes            LeaveType[]
+  
+  @@map("leave_templates")
+}
+
+model LeaveType {
+  id                    Int       @id @default(autoincrement())
+  leaveTemplateId       Int
+  code                  String    @unique // CL, PL, SL, LWP, etc.
+  name                  String    // Casual Leave, Privilege Leave, Sick Leave
+  description           String?
+  
+  // Configuration
+  annualQuota           Decimal   @db.Decimal(5, 2) // Can be fractional (e.g., 1.5 days)
+  carryForward          Boolean   @default(false)
+  maxCarryForward       Decimal   @db.Decimal(5, 2) @default(0)
+  encashable            Boolean   @default(false)
+  maxEncashment         Decimal   @db.Decimal(5, 2) @default(0)
+  
+  // Leave Application Rules
+  minDaysNotice         Int       @default(0) // Minimum days before applying
+  maxConsecutiveDays    Int?      // Max consecutive days allowed
+  canApplyHalfDay       Boolean   @default(true)
+  requiresDocument      Boolean   @default(false) // For medical certificate, etc.
+  documentRequiredAfter Int?      // Days after which document is mandatory
+  
+  // Approval Rules
+  requiresL1Approval    Boolean   @default(true)
+  requiresL2Approval    Boolean   @default(false)
+  
+  isPaid                Boolean   @default(true)
+  applySandwichRule     Boolean   @default(false)
+  isActive              Boolean   @default(true)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  leaveTemplate         LeaveTemplate @relation(fields: [leaveTemplateId], references: [id], onDelete: Cascade)
+  employeeBalances      EmployeeLeaveBalance[]
+  leaveApplications     LeaveApplication[]
+  
+  @@index([leaveTemplateId])
+  @@index([code])
+  @@map("leave_types")
+}
+
+model EmployeeLeaveBalance {
+  id                    Int       @id @default(autoincrement())
+  employeeId            Int
+  leaveTypeId           Int
+  year                  Int
+  
+  opening               Decimal   @db.Decimal(5, 2) @default(0)
+  credited              Decimal   @db.Decimal(5, 2) @default(0)
+  used                  Decimal   @db.Decimal(5, 2) @default(0)
+  encashed              Decimal   @db.Decimal(5, 2) @default(0)
+  lapsed                Decimal   @db.Decimal(5, 2) @default(0)
+  closing               Decimal   @db.Decimal(5, 2) @default(0)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  employee              Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType             LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([employeeId])
+  @@index([year])
+  @@map("employee_leave_balances")
+}
+
+model LeaveApplication {
+  id                    Int       @id @default(autoincrement())
+  employeeId            Int
+  leaveTypeId           Int
+  
+  // Leave Details
+  fromDate              DateTime  @db.Date
+  toDate                DateTime  @db.Date
+  isHalfDayStart        Boolean   @default(false)
+  isHalfDayEnd          Boolean   @default(false)
+  totalDays             Decimal   @db.Decimal(5, 2)
+  
+  reason                String
+  documentUrl           String?
+  contactDuringLeave    String?
+  
+  // Approval Workflow
+  status                String    @default("PENDING") // PENDING, L1_APPROVED, L2_APPROVED, APPROVED, REJECTED, CANCELLED
+  l1ApproverId          Int?
+  l1ApprovedAt          DateTime?
+  l1Comments            String?
+  l2ApproverId          Int?
+  l2ApprovedAt          DateTime?
+  l2Comments            String?
+  
+  rejectionReason       String?
+  cancelledAt           DateTime?
+  cancelReason          String?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  employee              Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType             LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  
+  @@index([employeeId])
+  @@index([status])
+  @@index([fromDate])
+  @@map("leave_applications")
+}
+
+// ============================================
+// COMP-OFF MANAGEMENT
+// ============================================
+
+model CompOffConfig {
+  id                    Int       @id @default(autoincrement())
+  name                  String
+  description           String?
+  
+  // Configuration
+  validityDays          Int       @default(90) // Days after which comp-off expires
+  maxAccrual            Decimal   @db.Decimal(5, 2) @default(10) // Max comp-off that can be accrued
+  canCarryForward       Boolean   @default(false)
+  
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("compoff_config")
+}
+
+model CompOffRecord {
+  id                    Int       @id @default(autoincrement())
+  employeeId            Int
+  
+  // Comp-Off Details
+  workedDate            DateTime  @db.Date
+  reason                String
+  approvedBy            Int?
+  approvedAt            DateTime?
+  
+  creditedDays          Decimal   @db.Decimal(5, 2) @default(1)
+  usedDays              Decimal   @db.Decimal(5, 2) @default(0)
+  balanceDays           Decimal   @db.Decimal(5, 2) @default(1)
+  
+  expiryDate            DateTime  @db.Date
+  status                String    @default("ACTIVE") // ACTIVE, USED, EXPIRED, CANCELLED
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  employee              Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  @@index([employeeId])
+  @@index([status])
+  @@map("compoff_records")
+}
+
+// ============================================
+// HOLIDAY CALENDAR
+// ============================================
+
+model Holiday {
+  id                    Int       @id @default(autoincrement())
+  name                  String
+  date                  DateTime  @db.Date
+  type                  String    // NATIONAL, REGIONAL, OPTIONAL
+  description           String?
+  isOptional            Boolean   @default(false)
+  applicableStates      String[]  @default([]) // Array of state codes
+  
+  year                  Int
+  createdAt             DateTime  @default(now())
+  
+  @@index([date])
+  @@index([year])
+  @@map("holidays")
+}
+
+// ============================================
+// PAYROLL MANAGEMENT
+// ============================================
+
+model PayrollRecord {
+  id                    Int       @id @default(autoincrement())
+  employeeId            Int
+  
+  // Payroll Period
+  year                  Int
+  month                 Int
+  payrollDate           DateTime  @default(now())
+  
+  // Attendance
+  totalWorkingDays      Decimal   @db.Decimal(5, 2)
+  presentDays           Decimal   @db.Decimal(5, 2)
+  paidLeaveDays         Decimal   @db.Decimal(5, 2) @default(0)
+  unpaidLeaveDays       Decimal   @db.Decimal(5, 2) @default(0)
+  lopDays               Decimal   @db.Decimal(5, 2) @default(0)
+  
+  // Earnings
+  basicSalary           Decimal   @db.Decimal(12, 2)
+  hra                   Decimal   @db.Decimal(12, 2)
+  conveyanceAllowance   Decimal   @db.Decimal(12, 2)
+  medicalAllowance      Decimal   @db.Decimal(12, 2)
+  specialAllowance      Decimal   @db.Decimal(12, 2)
+  otherAllowances       Decimal   @db.Decimal(12, 2) @default(0)
+  grossSalary           Decimal   @db.Decimal(12, 2)
+  
+  // Deductions
+  providentFund         Decimal   @db.Decimal(12, 2)
+  esi                   Decimal   @db.Decimal(12, 2) @default(0)
+  professionalTax       Decimal   @db.Decimal(12, 2) @default(0)
+  incomeTax             Decimal   @db.Decimal(12, 2) @default(0)
+  lopDeduction          Decimal   @db.Decimal(12, 2) @default(0)
+  otherDeductions       Decimal   @db.Decimal(12, 2) @default(0)
+  totalDeductions       Decimal   @db.Decimal(12, 2)
+  
+  // Net Pay
+  netSalary             Decimal   @db.Decimal(12, 2)
+  
+  // Status
+  status                String    @default("DRAFT") // DRAFT, PROCESSED, PAID, CANCELLED
+  processedAt           DateTime?
+  paidAt                DateTime?
+  paymentMode           String?   // BANK_TRANSFER, CASH, CHEQUE
+  paymentReference      String?
+  
+  remarks               String?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  employee              Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  adjustments           PayrollAdjustment[]
+  
+  @@unique([employeeId, year, month])
+  @@index([employeeId])
+  @@index([year, month])
+  @@index([status])
+  @@map("payroll_records")
+}
+
+model PayrollAdjustment {
+  id                    Int       @id @default(autoincrement())
+  payrollRecordId       Int
+  
+  type                  String    // EARNING, DEDUCTION
+  category              String    // BONUS, REIMBURSEMENT, PENALTY, ADVANCE_RECOVERY, etc.
+  description           String
+  amount                Decimal   @db.Decimal(12, 2)
+  
+  approvedBy            Int?
+  approvedAt            DateTime?
+  
+  createdAt             DateTime  @default(now())
+  
+  // Relations
+  payrollRecord         PayrollRecord @relation(fields: [payrollRecordId], references: [id], onDelete: Cascade)
+  
+  @@index([payrollRecordId])
+  @@map("payroll_adjustments")
+}
+
+// ============================================
+// SYSTEM CONFIGURATION
+// ============================================
+
+model SystemConfig {
+  id                    Int       @id @default(autoincrement())
+  key                   String    @unique
+  value                 String
+  dataType              String    @default("STRING") // STRING, NUMBER, BOOLEAN, JSON
+  description           String?
+  category              String?   // PAYROLL, LEAVE, ATTENDANCE, etc.
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@index([category])
+  @@map("system_config")
+}
+
+// ============================================
+// ADMIN & AUDIT
+// ============================================
+
+model AdminRequest {
+  id                    Int       @id @default(autoincrement())
+  requestType           String    // SALARY_UPDATE, LEAVE_ADJUSTMENT, PAYROLL_CORRECTION, etc.
+  requestedBy           Int
+  
+  entityType            String    // EMPLOYEE, PAYROLL, LEAVE, etc.
+  entityId              Int
+  
+  requestData           Json      @db.JsonB
+  previousData          Json?     @db.JsonB
+  
+  status                String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedBy            Int?
+  approvedAt            DateTime?
+  rejectionReason       String?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@index([requestedBy])
+  @@index([status])
+  @@map("admin_requests")
+}
+
+model AuditLog {
+  id                    Int       @id @default(autoincrement())
+  userId                Int
+  
+  action                String    // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  entityType            String    // USER, EMPLOYEE, PAYROLL, LEAVE, etc.
+  entityId              Int?
+  
+  oldData               Json?     @db.JsonB
+  newData               Json?     @db.JsonB
+  
+  ipAddress             String?
+  userAgent             String?
+  
+  createdAt             DateTime  @default(now())
+  
+  // Relations
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
