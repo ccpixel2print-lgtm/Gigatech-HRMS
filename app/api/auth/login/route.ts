@@ -8,11 +8,16 @@ const MAX_FAILED_ATTEMPTS = 5
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[LOGIN] Starting login request...')
+    
     const body = await request.json()
     const { email, password } = body
 
+    console.log('[LOGIN] Email:', email)
+
     // Validate input
     if (!email || !password) {
+      console.log('[LOGIN] Missing email or password')
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
@@ -20,6 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user by email
+    console.log('[LOGIN] Finding user in database...')
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
@@ -32,38 +38,50 @@ export async function POST(request: NextRequest) {
     })
 
     if (!user) {
+      console.log('[LOGIN] User not found')
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       )
     }
 
+    console.log('[LOGIN] User found:', user.id)
+
     // Check if user is active
     if (!user.isActive) {
+      console.log('[LOGIN] User inactive')
       return NextResponse.json(
         { error: 'Account is inactive. Please contact administrator.' },
         { status: 403 }
       )
     }
 
-    // CRITICAL: Check if account is locked
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
-      const remainingMinutes = Math.ceil(
-        (user.lockedUntil.getTime() - Date.now()) / (1000 * 60)
-      )
-      return NextResponse.json(
-        { 
-          error: `Account is locked due to multiple failed login attempts. Please try again in ${remainingMinutes} minute(s).`,
-          lockedUntil: user.lockedUntil.toISOString()
-        },
-        { status: 429 }
-      )
+    // CRITICAL: Check if account is locked - handle null safely
+    if (user.lockedUntil) {
+      const lockUntilDate = new Date(user.lockedUntil)
+      const now = new Date()
+      
+      if (lockUntilDate > now) {
+        const remainingMinutes = Math.ceil(
+          (lockUntilDate.getTime() - now.getTime()) / (1000 * 60)
+        )
+        console.log('[LOGIN] Account locked until:', lockUntilDate)
+        return NextResponse.json(
+          { 
+            error: `Account is locked due to multiple failed login attempts. Please try again in ${remainingMinutes} minute(s).`,
+            lockedUntil: lockUntilDate.toISOString()
+          },
+          { status: 429 }
+        )
+      }
     }
 
     // Verify password
+    console.log('[LOGIN] Verifying password...')
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
 
     if (!isPasswordValid) {
+      console.log('[LOGIN] Invalid password')
       // CRITICAL: Increment failed login attempts
       const newFailedAttempts = user.failedLoginAttempts + 1
       const updateData: any = {
@@ -81,6 +99,7 @@ export async function POST(request: NextRequest) {
           data: updateData
         })
 
+        console.log('[LOGIN] Account locked until:', lockUntil)
         return NextResponse.json(
           { 
             error: `Too many failed login attempts. Account locked for ${LOCK_DURATION_MINUTES} minutes.`,
@@ -97,6 +116,7 @@ export async function POST(request: NextRequest) {
       })
 
       const remainingAttempts = MAX_FAILED_ATTEMPTS - newFailedAttempts
+      console.log('[LOGIN] Failed attempts:', newFailedAttempts, 'Remaining:', remainingAttempts)
       return NextResponse.json(
         { 
           error: `Invalid credentials. ${remainingAttempts} attempt(s) remaining before account lock.`,
@@ -107,6 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     // SUCCESS: Reset failed attempts and unlock account
+    console.log('[LOGIN] Password valid, resetting failed attempts...')
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -116,6 +137,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Create audit log
+    console.log('[LOGIN] Creating audit log...')
     await prisma.auditLog.create({
       data: {
         userId: user.id,
@@ -133,8 +155,10 @@ export async function POST(request: NextRequest) {
 
     // Extract roles
     const roles = user.userRoles.map(ur => ur.role.name)
+    console.log('[LOGIN] User roles:', roles)
 
     // Generate JWT
+    console.log('[LOGIN] Generating JWT...')
     const token = await signJWT({
       userId: user.id,
       email: user.email,
@@ -164,13 +188,17 @@ export async function POST(request: NextRequest) {
       path: '/'
     })
 
+    console.log('[LOGIN] Login successful for user:', user.id)
     return response
 
-  } catch (error) {
-    console.error('Login error:', error)
+  } catch (error: any) {
+    console.error('[LOGIN] ERROR:', error)
+    console.error('[LOGIN] Error stack:', error.stack)
+    console.error('[LOGIN] Error message:', error.message)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }
 }
+
