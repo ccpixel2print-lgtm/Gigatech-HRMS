@@ -1,19 +1,19 @@
 # HR Lite - Implementation Plan (Phase I MVP)
 
 ## Project Status
-- Current Phase: 1. Foundation & Schema
-- Status: NOT STARTED
+- Current Phase: 2. Authentication & Role Management
+- Status: IN PROGRESS
 
-## 1. Foundation & Database Schema
-- [ ] Initialize Next.js 14 (App Router), TypeScript, Tailwind, ShadCN UI
-- [ ] Install dependencies: prisma, @prisma/client, next-auth(v5) or jose, bcryptjs, date-fns, zod, zustand, clsx, tailwind-merge
-- [ ] Setup `lib/prisma.ts` & `lib/utils.ts`
-- [ ] **LOOSE EDGE FIX:** Define Prisma Schema with specific hardening:
-    - [ ] `Users` table: Add `failedLoginAttempts` (Int) and `lockedUntil` (DateTime) for security
-    - [ ] `PayrollRecords` table: Ensure `Decimal(12,2)` for salary, `Decimal(5,2)` for percentages
-    - [ ] `PayrollRecords` table: Ensure `updatedAt` exists for Optimistic Concurrency Control
-    - [ ] Map JSON fields (`AdminRequests`, `AuditLogs`) to `@db.JsonB`
-- [ ] Configure `.env` and verify Neon DB connection via `prisma db push`
+## 1. Foundation & Database Schema ✅ COMPLETED
+- [x] Initialize Next.js 14 (App Router), TypeScript, Tailwind, ShadCN UI
+- [x] Install dependencies: prisma, @prisma/client, next-auth(v5) or jose, bcryptjs, date-fns, zod, zustand, clsx, tailwind-merge
+- [x] Setup `lib/prisma.ts` & `lib/utils.ts`
+- [x] **LOOSE EDGE FIX:** Define Prisma Schema with specific hardening:
+    - [x] `Users` table: Add `failedLoginAttempts` (Int) and `lockedUntil` (DateTime) for security
+    - [x] `PayrollRecords` table: Ensure `Decimal(12,2)` for salary, `Decimal(5,2)` for percentages
+    - [x] `PayrollRecords` table: Ensure `updatedAt` exists for Optimistic Concurrency Control
+    - [x] Map JSON fields (`AdminRequests`, `AuditLogs`) to `@db.JsonB`
+- [x] Configure `.env` and verify Neon DB connection via `prisma db push`
 
 ## 2. Authentication & Role Management
 - [ ] Implement `lib/auth.ts` using JWT & JOSE
