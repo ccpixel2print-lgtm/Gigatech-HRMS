@@ -4,23 +4,13 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
-import { 
-  createEmployeeSchema, 
-  type CreateEmployeeInput 
-} from '@/lib/validators/employee'
+import { employeeSchema, type EmployeeFormValues } from '@/lib/validators/employee'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Loader2, Save, Calculator } from 'lucide-react'
 
 export function EmployeeForm() {
@@ -39,61 +29,46 @@ export function EmployeeForm() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
     watch,
-  } = useForm<CreateEmployeeInput>({
-    resolver: zodResolver(createEmployeeSchema),
+  } = useForm<EmployeeFormValues>({
+    resolver: zodResolver(employeeSchema),
     defaultValues: {
-      status: 'DRAFT',
-      salary: {
-        otherAllowances: '0',
-        esi: '0',
-        professionalTax: '0',
-        incomeTax: '0',
-        otherDeductions: '0',
-        isActive: true,
-      },
+      basicSalary: 0,
+      hra: 0,
+      da: 0,
+      specialAllowance: 0,
+      pf: 0,
+      esi: 0,
+      professionalTax: 0,
     },
   })
 
   // Watch salary fields for real-time calculation
-  const watchedSalary = watch('salary')
+  const basicSalary = watch('basicSalary') || 0
+  const hra = watch('hra') || 0
+  const da = watch('da') || 0
+  const specialAllowance = watch('specialAllowance') || 0
+  const pf = watch('pf') || 0
+  const esi = watch('esi') || 0
+  const professionalTax = watch('professionalTax') || 0
 
   useEffect(() => {
-    if (watchedSalary) {
-      const basic = parseFloat(watchedSalary.basicSalary || '0')
-      const hra = parseFloat(watchedSalary.hra || '0')
-      const conveyance = parseFloat(watchedSalary.conveyanceAllowance || '0')
-      const medical = parseFloat(watchedSalary.medicalAllowance || '0')
-      const special = parseFloat(watchedSalary.specialAllowance || '0')
-      const other = parseFloat(watchedSalary.otherAllowances || '0')
+    const gross = Number(basicSalary) + Number(hra) + Number(da) + Number(specialAllowance)
+    const deductions = Number(pf) + Number(esi) + Number(professionalTax)
+    const net = gross - deductions
 
-      const pf = parseFloat(watchedSalary.providentFund || '0')
-      const esi = parseFloat(watchedSalary.esi || '0')
-      const pt = parseFloat(watchedSalary.professionalTax || '0')
-      const it = parseFloat(watchedSalary.incomeTax || '0')
-      const otherDed = parseFloat(watchedSalary.otherDeductions || '0')
+    setSalaryPreview({
+      gross: gross,
+      deductions: deductions,
+      net: net,
+    })
+  }, [basicSalary, hra, da, specialAllowance, pf, esi, professionalTax])
 
-      const gross = basic + hra + conveyance + medical + special + other
-      const deductions = pf + esi + pt + it + otherDed
-      const net = gross - deductions
-
-      setSalaryPreview({
-        gross: gross,
-        deductions: deductions,
-        net: net,
-      })
-
-      // Auto-calculate CTC and Net Salary
-      setValue('salary.ctcAnnual', gross.toString())
-      setValue('salary.netSalaryAnnual', net.toString())
-      setValue('salary.netSalaryMonthly', (net / 12).toFixed(2))
-    }
-  }, [watchedSalary, setValue])
-
-  const onSubmit = async (data: CreateEmployeeInput) => {
+  const onSubmit = async (data: EmployeeFormValues) => {
     setSubmitting(true)
     try {
+      console.log('[FORM] Submitting employee data:', data)
+      
       const response = await fetch('/api/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -109,7 +84,7 @@ export function EmployeeForm() {
       alert('Employee created successfully!')
       router.push('/hr/employees')
     } catch (error) {
-      console.error('Failed to create employee:', error)
+      console.error('[FORM] Failed to create employee:', error)
       alert('Failed to create employee')
     } finally {
       setSubmitting(false)
@@ -162,135 +137,17 @@ export function EmployeeForm() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth">Date of Birth *</Label>
-                  <Input
-                    id="dateOfBirth"
-                    type="date"
-                    {...register('dateOfBirth')}
-                  />
-                  {errors.dateOfBirth && (
-                    <p className="text-sm text-destructive">{errors.dateOfBirth.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Gender *</Label>
-                  <Select onValueChange={(value) => setValue('gender', value as any)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MALE">Male</SelectItem>
-                      <SelectItem value="FEMALE">Female</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.gender && (
-                    <p className="text-sm text-destructive">{errors.gender.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="maritalStatus">Marital Status</Label>
-                  <Select onValueChange={(value) => setValue('maritalStatus', value as any)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SINGLE">Single</SelectItem>
-                      <SelectItem value="MARRIED">Married</SelectItem>
-                      <SelectItem value="DIVORCED">Divorced</SelectItem>
-                      <SelectItem value="WIDOWED">Widowed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="personalPhone">Personal Phone *</Label>
-                  <Input
-                    id="personalPhone"
-                    {...register('personalPhone')}
-                    placeholder="9876543210"
-                  />
-                  {errors.personalPhone && (
-                    <p className="text-sm text-destructive">{errors.personalPhone.message}</p>
-                  )}
-                </div>
-              </div>
-
               <div className="space-y-2">
-                <Label htmlFor="personalEmail">Personal Email</Label>
+                <Label htmlFor="email">Work Email *</Label>
                 <Input
-                  id="personalEmail"
+                  id="email"
                   type="email"
-                  {...register('personalEmail')}
-                  placeholder="rajesh@personal.com"
+                  {...register('email')}
+                  placeholder="rajesh.kumar@gigatech.com"
                 />
-                {errors.personalEmail && (
-                  <p className="text-sm text-destructive">{errors.personalEmail.message}</p>
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email.message}</p>
                 )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="currentAddress">Current Address</Label>
-                <Input
-                  id="currentAddress"
-                  {...register('currentAddress')}
-                  placeholder="123 MG Road, Bangalore"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    {...register('city')}
-                    placeholder="Bangalore"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
-                  <Input
-                    id="state"
-                    {...register('state')}
-                    placeholder="Karnataka"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pincode">Pincode</Label>
-                  <Input
-                    id="pincode"
-                    {...register('pincode')}
-                    placeholder="560001"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyContactName">Emergency Contact Name</Label>
-                  <Input
-                    id="emergencyContactName"
-                    {...register('emergencyContactName')}
-                    placeholder="Priya Kumar"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
-                  <Input
-                    id="emergencyContactPhone"
-                    {...register('emergencyContactPhone')}
-                    placeholder="9876543211"
-                  />
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -306,67 +163,21 @@ export function EmployeeForm() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="workEmail">Work Email *</Label>
-                  <Input
-                    id="workEmail"
-                    type="email"
-                    {...register('workEmail')}
-                    placeholder="rajesh.kumar@gigatech.com"
-                  />
-                  {errors.workEmail && (
-                    <p className="text-sm text-destructive">{errors.workEmail.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">Temporary Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    {...register('password')}
-                    placeholder="Default: 1234"
-                  />
-                  <p className="text-xs text-muted-foreground">Leave empty to use default (1234)</p>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="dateOfJoining">Date of Joining *</Label>
+                <Input
+                  id="dateOfJoining"
+                  type="date"
+                  {...register('dateOfJoining')}
+                />
+                {errors.dateOfJoining && (
+                  <p className="text-sm text-destructive">{errors.dateOfJoining.message}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="dateOfJoining">Date of Joining *</Label>
-                  <Input
-                    id="dateOfJoining"
-                    type="date"
-                    {...register('dateOfJoining')}
-                  />
-                  {errors.dateOfJoining && (
-                    <p className="text-sm text-destructive">{errors.dateOfJoining.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="employmentType">Employment Type *</Label>
-                  <Select onValueChange={(value) => setValue('employmentType', value as any)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FULL_TIME">Full Time</SelectItem>
-                      <SelectItem value="PART_TIME">Part Time</SelectItem>
-                      <SelectItem value="CONTRACT">Contract</SelectItem>
-                      <SelectItem value="INTERN">Intern</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.employmentType && (
-                    <p className="text-sm text-destructive">{errors.employmentType.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="designation">Designation *</Label>
+                  <Label htmlFor="designation">Designation</Label>
                   <Input
                     id="designation"
                     {...register('designation')}
@@ -378,7 +189,7 @@ export function EmployeeForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department *</Label>
+                  <Label htmlFor="department">Department</Label>
                   <Input
                     id="department"
                     {...register('department')}
@@ -414,36 +225,25 @@ export function EmployeeForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="bankAccountNumber">Account Number</Label>
+                  <Label htmlFor="accountNumber">Account Number</Label>
                   <Input
-                    id="bankAccountNumber"
-                    {...register('bankAccountNumber')}
+                    id="accountNumber"
+                    {...register('accountNumber')}
                     placeholder="12345678901234"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bankIfscCode">IFSC Code</Label>
-                  <Input
-                    id="bankIfscCode"
-                    {...register('bankIfscCode')}
-                    placeholder="HDFC0001234"
-                  />
-                  {errors.bankIfscCode && (
-                    <p className="text-sm text-destructive">{errors.bankIfscCode.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="bankBranch">Branch</Label>
-                  <Input
-                    id="bankBranch"
-                    {...register('bankBranch')}
-                    placeholder="MG Road Branch"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="ifscCode">IFSC Code</Label>
+                <Input
+                  id="ifscCode"
+                  {...register('ifscCode')}
+                  placeholder="HDFC0001234"
+                />
+                {errors.ifscCode && (
+                  <p className="text-sm text-destructive">{errors.ifscCode.message}</p>
+                )}
               </div>
 
               <div className="border-t pt-4 mt-4">
@@ -464,21 +264,6 @@ export function EmployeeForm() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="aadharNumber">Aadhar Number</Label>
-                    <Input
-                      id="aadharNumber"
-                      {...register('aadharNumber')}
-                      placeholder="123456789012"
-                      maxLength={12}
-                    />
-                    {errors.aadharNumber && (
-                      <p className="text-sm text-destructive">{errors.aadharNumber.message}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div className="space-y-2">
                     <Label htmlFor="uanNumber">UAN (PF Number)</Label>
                     <Input
                       id="uanNumber"
@@ -489,15 +274,6 @@ export function EmployeeForm() {
                     {errors.uanNumber && (
                       <p className="text-sm text-destructive">{errors.uanNumber.message}</p>
                     )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="esicNumber">ESIC Number</Label>
-                    <Input
-                      id="esicNumber"
-                      {...register('esicNumber')}
-                      placeholder="Optional"
-                    />
                   </div>
                 </div>
               </div>
@@ -529,56 +305,45 @@ export function EmployeeForm() {
                       id="basicSalary"
                       type="number"
                       step="0.01"
-                      {...register('salary.basicSalary')}
+                      {...register('basicSalary')}
                       placeholder="300000"
                     />
-                    {errors.salary?.basicSalary && (
-                      <p className="text-sm text-destructive">{errors.salary.basicSalary.message}</p>
+                    {errors.basicSalary && (
+                      <p className="text-sm text-destructive">{errors.basicSalary.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="hra">HRA *</Label>
+                    <Label htmlFor="hra">HRA (House Rent Allowance)</Label>
                     <Input
                       id="hra"
                       type="number"
                       step="0.01"
-                      {...register('salary.hra')}
+                      {...register('hra')}
                       placeholder="120000"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="grid grid-cols-2 gap-4 mt-4">
                   <div className="space-y-2">
-                    <Label htmlFor="conveyanceAllowance">Conveyance *</Label>
+                    <Label htmlFor="da">DA (Dearness Allowance)</Label>
                     <Input
-                      id="conveyanceAllowance"
+                      id="da"
                       type="number"
                       step="0.01"
-                      {...register('salary.conveyanceAllowance')}
-                      placeholder="19200"
+                      {...register('da')}
+                      placeholder="50000"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="medicalAllowance">Medical *</Label>
-                    <Input
-                      id="medicalAllowance"
-                      type="number"
-                      step="0.01"
-                      {...register('salary.medicalAllowance')}
-                      placeholder="15000"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="specialAllowance">Special *</Label>
+                    <Label htmlFor="specialAllowance">Special Allowance</Label>
                     <Input
                       id="specialAllowance"
                       type="number"
                       step="0.01"
-                      {...register('salary.specialAllowance')}
+                      {...register('specialAllowance')}
                       placeholder="100000"
                     />
                   </div>
@@ -591,12 +356,12 @@ export function EmployeeForm() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="providentFund">Provident Fund (PF) *</Label>
+                    <Label htmlFor="pf">Provident Fund (PF)</Label>
                     <Input
-                      id="providentFund"
+                      id="pf"
                       type="number"
                       step="0.01"
-                      {...register('salary.providentFund')}
+                      {...register('pf')}
                       placeholder="36000"
                     />
                   </div>
@@ -607,7 +372,7 @@ export function EmployeeForm() {
                       id="esi"
                       type="number"
                       step="0.01"
-                      {...register('salary.esi')}
+                      {...register('esi')}
                       placeholder="0"
                     />
                   </div>
@@ -620,19 +385,8 @@ export function EmployeeForm() {
                       id="professionalTax"
                       type="number"
                       step="0.01"
-                      {...register('salary.professionalTax')}
+                      {...register('professionalTax')}
                       placeholder="2400"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="incomeTax">Income Tax (TDS)</Label>
-                    <Input
-                      id="incomeTax"
-                      type="number"
-                      step="0.01"
-                      {...register('salary.incomeTax')}
-                      placeholder="0"
                     />
                   </div>
                 </div>
@@ -659,19 +413,6 @@ export function EmployeeForm() {
                     <span className="font-medium">₹{(salaryPreview.net / 12).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
-              </div>
-
-              {/* Effective Date */}
-              <div className="space-y-2">
-                <Label htmlFor="effectiveFrom">Effective From *</Label>
-                <Input
-                  id="effectiveFrom"
-                  type="date"
-                  {...register('salary.effectiveFrom')}
-                />
-                {errors.salary?.effectiveFrom && (
-                  <p className="text-sm text-destructive">{errors.salary.effectiveFrom.message}</p>
-                )}
               </div>
             </CardContent>
           </Card>

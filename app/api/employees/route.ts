@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
-import { createEmployeeSchema } from '@/lib/validators/employee'
+import { employeeSchema } from '@/lib/validators/employee'
 import { Prisma } from '@prisma/client'
 
 const SALT_ROUNDS = 10
@@ -133,10 +133,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    console.log('[API/EMPLOYEES] Received body:', JSON.stringify(body, null, 2))
 
-    // Validate input
-    const validation = createEmployeeSchema.safeParse(body)
+    // Validate input with the simplified schema
+    const validation = employeeSchema.safeParse(body)
     if (!validation.success) {
+      console.error('[API/EMPLOYEES] Validation failed:', validation.error.errors)
       return NextResponse.json(
         { error: 'Validation failed', details: validation.error.errors },
         { status: 400 }
@@ -149,7 +151,7 @@ export async function POST(request: NextRequest) {
 
     // Check if work email already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email: data.workEmail }
+      where: { email: data.email }
     })
 
     if (existingUser) {
@@ -172,34 +174,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check for duplicate Aadhar if provided
-    if (data.aadharNumber) {
-      const existingAadhar = await prisma.employee.findUnique({
-        where: { aadharNumber: data.aadharNumber }
-      })
-      if (existingAadhar) {
-        return NextResponse.json(
-          { error: 'Aadhar number already exists' },
-          { status: 409 }
-        )
-      }
-    }
-
     // Generate employee code and username
     const employeeCode = await generateEmployeeCode()
     const username = await generateUsername(data.firstName, data.lastName)
-    const password = data.password || '1234' // Default password
+    const password = '1234' // Default password
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
 
     console.log('[API/EMPLOYEES] Generated employee code:', employeeCode)
     console.log('[API/EMPLOYEES] Generated username:', username)
+
+    // Calculate salary values
+    const gross = data.basicSalary + data.hra + data.da + data.specialAllowance
+    const deductions = data.pf + data.esi + data.professionalTax
+    const netAnnual = gross - deductions
+    const netMonthly = netAnnual / 12
 
     // Create employee and user in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create User account
       const user = await tx.user.create({
         data: {
-          email: data.workEmail,
+          email: data.email,
           passwordHash: passwordHash,
           fullName: `${data.firstName} ${data.lastName}`,
           isActive: true,
@@ -227,35 +222,20 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           employeeCode: employeeCode,
           firstName: data.firstName,
-          middleName: data.middleName,
           lastName: data.lastName,
-          dateOfBirth: new Date(data.dateOfBirth),
-          gender: data.gender,
-          maritalStatus: data.maritalStatus,
-          personalEmail: data.personalEmail,
-          personalPhone: data.personalPhone,
-          emergencyContactName: data.emergencyContactName,
-          emergencyContactPhone: data.emergencyContactPhone,
-          currentAddress: data.currentAddress,
-          permanentAddress: data.permanentAddress,
-          city: data.city,
-          state: data.state,
-          pincode: data.pincode,
-          dateOfJoining: new Date(data.dateOfJoining),
-          dateOfLeaving: data.dateOfLeaving ? new Date(data.dateOfLeaving) : null,
-          employmentType: data.employmentType,
-          designation: data.designation,
-          department: data.department,
-          reportingManagerId: data.reportingManagerId,
+          dateOfBirth: new Date('1990-01-01'), // Default DOB
+          gender: 'MALE', // Default gender
+          personalPhone: '0000000000', // Default phone
+          dateOfJoining: data.dateOfJoining,
+          employmentType: 'FULL_TIME', // Default
+          designation: data.designation || 'Employee',
+          department: data.department || 'General',
           panNumber: data.panNumber,
-          aadharNumber: data.aadharNumber,
           uanNumber: data.uanNumber,
-          esicNumber: data.esicNumber,
           bankName: data.bankName,
-          bankAccountNumber: data.bankAccountNumber,
-          bankIfscCode: data.bankIfscCode,
-          bankBranch: data.bankBranch,
-          status: data.status || 'DRAFT',
+          bankAccountNumber: data.accountNumber,
+          bankIfscCode: data.ifscCode,
+          status: 'DRAFT',
         },
         include: {
           user: {
@@ -272,23 +252,22 @@ export async function POST(request: NextRequest) {
       const salary = await tx.employeeSalary.create({
         data: {
           employeeId: employee.id,
-          ctcAnnual: new Prisma.Decimal(data.salary.ctcAnnual),
-          basicSalary: new Prisma.Decimal(data.salary.basicSalary),
-          hra: new Prisma.Decimal(data.salary.hra),
-          conveyanceAllowance: new Prisma.Decimal(data.salary.conveyanceAllowance),
-          medicalAllowance: new Prisma.Decimal(data.salary.medicalAllowance),
-          specialAllowance: new Prisma.Decimal(data.salary.specialAllowance),
-          otherAllowances: new Prisma.Decimal(data.salary.otherAllowances || '0'),
-          providentFund: new Prisma.Decimal(data.salary.providentFund),
-          esi: new Prisma.Decimal(data.salary.esi || '0'),
-          professionalTax: new Prisma.Decimal(data.salary.professionalTax || '0'),
-          incomeTax: new Prisma.Decimal(data.salary.incomeTax || '0'),
-          otherDeductions: new Prisma.Decimal(data.salary.otherDeductions || '0'),
-          netSalaryAnnual: new Prisma.Decimal(data.salary.netSalaryAnnual),
-          netSalaryMonthly: new Prisma.Decimal(data.salary.netSalaryMonthly),
-          effectiveFrom: new Date(data.salary.effectiveFrom),
-          effectiveTo: data.salary.effectiveTo ? new Date(data.salary.effectiveTo) : null,
-          isActive: data.salary.isActive ?? true,
+          ctcAnnual: new Prisma.Decimal(gross),
+          basicSalary: new Prisma.Decimal(data.basicSalary),
+          hra: new Prisma.Decimal(data.hra),
+          conveyanceAllowance: new Prisma.Decimal(data.da), // Using DA as conveyance
+          medicalAllowance: new Prisma.Decimal(0),
+          specialAllowance: new Prisma.Decimal(data.specialAllowance),
+          otherAllowances: new Prisma.Decimal(0),
+          providentFund: new Prisma.Decimal(data.pf),
+          esi: new Prisma.Decimal(data.esi),
+          professionalTax: new Prisma.Decimal(data.professionalTax),
+          incomeTax: new Prisma.Decimal(0),
+          otherDeductions: new Prisma.Decimal(0),
+          netSalaryAnnual: new Prisma.Decimal(netAnnual),
+          netSalaryMonthly: new Prisma.Decimal(netMonthly),
+          effectiveFrom: data.dateOfJoining,
+          isActive: true,
         }
       })
 
@@ -313,7 +292,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
         return NextResponse.json(
-          { error: 'A unique constraint would be violated. Please check PAN, Aadhar, UAN, or ESIC numbers.' },
+          { error: 'A unique constraint would be violated. Please check email, PAN, or UAN numbers.' },
           { status: 409 }
         )
       }
