@@ -50,8 +50,13 @@
   - [x] Overlap check for APPROVED/PENDING leaves
   - [x] Balance check (MVP: simple validation)
   - [x] Status defaults to PENDING
+- [x] Create Leave Balance API (GET /api/leaves/balance/[employeeId])
+- [x] Create Leave Application Form UI (app/employee/leaves/page.tsx):
+  - [x] Balance Cards (CL, EL, SL, LOP with quota/used/available)
+  - [x] Apply Leave Dialog with form (Type, Dates, Reason)
+  - [x] History Table with status badges (Pending=Yellow, Approved=Green, Rejected=Red)
+- [x] Create Employee Layout with navigation sidebar (My Leaves link)
 - [ ] **LOOSE EDGE FIX:** Implement "Sandwich Rule" logic helper function (Logic: Holiday/Weekend -> Leave -> Sandwich Check)
-- [ ] Create Leave Application Form UI
 - [ ] Implement Leave Approval Workflow (L1 -> L2)
 - [ ] Create Leave Balance Initialization for existing employees
 
