@@ -23,14 +23,16 @@
 - [x] Create Admin User Management UI (Create/Edit/Soft-Delete)
 - [x] **LOOSE EDGE FEATURE:** Implement User Unlock functionality (Reset failedLoginAttempts & lockedUntil)
 
-## 3. HR Master Data (Employees & Salary) 🚧 IN PROGRESS
+## 3. HR Master Data (Employees & Salary) ✅ COMPLETED
 - [x] Create Employee Backend API with Zod validation (lib/validators/employee.ts)
 - [x] Implement Employee Creation with Transaction (User + Employee + Salary in one atomic operation)
 - [x] Add Employee Code Auto-generation (EMP001, EMP002, etc.)
 - [x] Add Username Auto-generation (firstname.lastname)
-- [ ] Create Employee Onboarding Form (Personal, Bank, Statutory)
-- [ ] Create Salary Config Form with Indian Standard breakdowns (Basic, HRA, DA, PF, ESI)
-- [ ] Implement "Publish Employee" status workflow
+- [x] Create Employee Onboarding Form (Personal, Bank, Statutory) - Multi-tab form with ShadCN Tabs
+- [x] Create Salary Config Form with Indian Standard breakdowns (Basic, HRA, DA, PF, ESI) - Tab 4 with real-time calculator
+- [x] Create Employee List Page (app/hr/employees/page.tsx) with table view
+- [x] Create HR Layout with navigation sidebar
+- [ ] Implement "Publish Employee" status workflow (Optional - can be added later)
 
 ## 4. Leave Management Engine
 - [ ] Create Leave Template Management (Admin)
