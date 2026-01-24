@@ -1,8 +1,8 @@
 # HR Lite - Implementation Plan (Phase I MVP)
 
 ## Project Status
-- Current Phase: 2. Authentication & Role Management
-- Status: IN PROGRESS
+- Current Phase: 3. HR Master Data (Employees & Salary)
+- Status: READY TO START
 
 ## 1. Foundation & Database Schema ✅ COMPLETED
 - [x] Initialize Next.js 14 (App Router), TypeScript, Tailwind, ShadCN UI
@@ -15,12 +15,13 @@
     - [x] Map JSON fields (`AdminRequests`, `AuditLogs`) to `@db.JsonB`
 - [x] Configure `.env` and verify Neon DB connection via `prisma db push`
 
-## 2. Authentication & Role Management ✅ COMPLETED (Backend & Login)
+## 2. Authentication & Role Management ✅ COMPLETED
 - [x] Implement `lib/auth.ts` using JWT & JOSE
 - [x] **LOOSE EDGE FIX:** Implement Login Logic with Rate Limiting (5 attempts = 15 min lock)
 - [x] Create `middleware.ts` for RBAC protection
 - [x] Create Seed Script (`scripts/seed.ts`) to create Admin/HR/TeamLead/Employee users
-- [ ] Create Admin User Management UI (Create/Edit/Soft-Delete)
+- [x] Create Admin User Management UI (Create/Edit/Soft-Delete)
+- [x] **LOOSE EDGE FEATURE:** Implement User Unlock functionality (Reset failedLoginAttempts & lockedUntil)
 
 ## 3. HR Master Data (Employees & Salary)
 - [ ] Create Employee Onboarding Form (Personal, Bank, Statutory)
