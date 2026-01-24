@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import Link from 'next/link'
-import { Users, LayoutDashboard, Settings, LogOut } from 'lucide-react'
+import { Users, LayoutDashboard, Settings, LogOut, DollarSign } from 'lucide-react'
 
 export default function HRLayout({ children }: { children: ReactNode }) {
   return (
@@ -29,6 +29,14 @@ export default function HRLayout({ children }: { children: ReactNode }) {
           >
             <Users className="h-5 w-5" />
             <span>Employees</span>
+          </Link>
+
+          <Link
+            href="/hr/payroll"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            <DollarSign className="h-5 w-5" />
+            <span>Payroll</span>
           </Link>
 
           <Link
