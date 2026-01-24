@@ -55,33 +55,61 @@ export default function PayrollPage() {
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set())
 
   // Load or generate payroll
-  const handleLoadGenerate = async () => {
+  const handleLoadGenerate = async (e?: React.MouseEvent) => {
+    // FIX 1: Prevent form submission/page reload
+    if (e) {
+      e.preventDefault()
+    }
+
+    // FIX 2: Block future month generation
+    const currentDate = new Date()
+    const currentYear = currentDate.getFullYear()
+    const currentMonth = currentDate.getMonth() + 1 // JavaScript months are 0-indexed
+
+    if (selectedYear > currentYear || 
+        (selectedYear === currentYear && selectedMonth > currentMonth)) {
+      alert('Cannot generate payroll for future months.')
+      return
+    }
+
     setLoading(true)
     try {
-      const res = await fetch('/api/payroll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month: selectedMonth, year: selectedYear })
-      })
-
-      if (res.ok) {
-        const data = await res.json()
+      // FIX 3: Try to load existing records first
+      const fetchRes = await fetch(`/api/payroll?month=${selectedMonth}&year=${selectedYear}`)
+      
+      if (fetchRes.ok) {
+        const existingRecords = await fetchRes.json()
         
-        // Fetch the records to display
-        const fetchRes = await fetch(`/api/payroll?month=${selectedMonth}&year=${selectedYear}`)
-        if (fetchRes.ok) {
-          const fetchedRecords = await fetchRes.json()
-          setRecords(fetchedRecords)
-          
-          if (data.summary.created > 0) {
-            alert(`Successfully generated payroll for ${data.summary.created} employees`)
-          } else if (data.summary.existing > 0) {
-            alert(`Loaded ${data.summary.existing} existing payroll records`)
+        if (existingRecords.length > 0) {
+          // Records exist, just load them
+          setRecords(existingRecords)
+          alert(`Loaded ${existingRecords.length} existing payroll records`)
+        } else {
+          // No records exist, generate new ones
+          const res = await fetch('/api/payroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month: selectedMonth, year: selectedYear })
+          })
+
+          if (res.ok) {
+            const data = await res.json()
+            
+            // Fetch the newly created records
+            const newFetchRes = await fetch(`/api/payroll?month=${selectedMonth}&year=${selectedYear}`)
+            if (newFetchRes.ok) {
+              const fetchedRecords = await newFetchRes.json()
+              setRecords(fetchedRecords)
+              
+              if (data.summary.created > 0) {
+                alert(`Successfully generated payroll for ${data.summary.created} employees`)
+              }
+            }
+          } else {
+            const error = await res.json()
+            alert(`Error: ${error.error}`)
           }
         }
-      } else {
-        const error = await res.json()
-        alert(`Error: ${error.error}`)
       }
     } catch (error) {
       console.error('Error loading payroll:', error)
@@ -278,6 +306,7 @@ export default function PayrollPage() {
             </div>
 
             <Button 
+              type="button"
               onClick={handleLoadGenerate}
               disabled={loading}
               className="flex items-center gap-2"
@@ -294,6 +323,47 @@ export default function PayrollPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* FIX 3: Summary Card */}
+      {records.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Payroll Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Total Payout</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(
+                    records.reduce((sum, r) => sum + parseFloat(r.netSalary), 0)
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Status Breakdown</p>
+                <div className="flex gap-2 mt-1">
+                  <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                    {records.filter(r => r.status === 'DRAFT').length} Draft
+                  </Badge>
+                  <Badge variant="outline" className="bg-green-100 text-green-800">
+                    {records.filter(r => r.status === 'PROCESSED').length} Processed
+                  </Badge>
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                    {records.filter(r => r.status === 'PAID').length} Paid
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total Employees</p>
+                <p className="text-2xl font-bold">
+                  {records.length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Data Table */}
       {records.length > 0 && (
