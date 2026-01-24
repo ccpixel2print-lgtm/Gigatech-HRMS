@@ -2,7 +2,7 @@
 
 ## Project Status
 - Current Phase: 3. HR Master Data (Employees & Salary)
-- Status: READY TO START
+- Status: IN PROGRESS
 
 ## 1. Foundation & Database Schema ✅ COMPLETED
 - [x] Initialize Next.js 14 (App Router), TypeScript, Tailwind, ShadCN UI
@@ -23,7 +23,11 @@
 - [x] Create Admin User Management UI (Create/Edit/Soft-Delete)
 - [x] **LOOSE EDGE FEATURE:** Implement User Unlock functionality (Reset failedLoginAttempts & lockedUntil)
 
-## 3. HR Master Data (Employees & Salary)
+## 3. HR Master Data (Employees & Salary) 🚧 IN PROGRESS
+- [x] Create Employee Backend API with Zod validation (lib/validators/employee.ts)
+- [x] Implement Employee Creation with Transaction (User + Employee + Salary in one atomic operation)
+- [x] Add Employee Code Auto-generation (EMP001, EMP002, etc.)
+- [x] Add Username Auto-generation (firstname.lastname)
 - [ ] Create Employee Onboarding Form (Personal, Bank, Statutory)
 - [ ] Create Salary Config Form with Indian Standard breakdowns (Basic, HRA, DA, PF, ESI)
 - [ ] Implement "Publish Employee" status workflow
