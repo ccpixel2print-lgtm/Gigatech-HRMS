@@ -16,6 +16,18 @@ const createUserSchema = z.object({
 // GET - List all users with their roles
 export async function GET(request: NextRequest) {
   try {
+    // Check if user is ADMIN
+    const rolesHeader = request.headers.get('x-user-roles')
+    const roles = rolesHeader ? JSON.parse(rolesHeader) : []
+    
+    if (!roles.includes('ADMIN')) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Admin access required' },
+        { status: 403 }
+      )
+    }
+
+    console.log('[API/USERS] Fetching all users...')
     const users = await prisma.user.findMany({
       include: {
         userRoles: {
@@ -28,6 +40,8 @@ export async function GET(request: NextRequest) {
         createdAt: 'desc'
       }
     })
+
+    console.log(`[API/USERS] Found ${users.length} users`)
 
     // Format response
     const formattedUsers = users.map(user => ({
@@ -50,9 +64,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedUsers, { status: 200 })
 
   } catch (error) {
-    console.error('Error fetching users:', error)
+    console.error('[API/USERS] Error fetching users:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch users' },
+      { error: 'Failed to fetch users', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
@@ -61,6 +75,17 @@ export async function GET(request: NextRequest) {
 // POST - Create new user
 export async function POST(request: NextRequest) {
   try {
+    // Check if user is ADMIN
+    const rolesHeader = request.headers.get('x-user-roles')
+    const roles = rolesHeader ? JSON.parse(rolesHeader) : []
+    
+    if (!roles.includes('ADMIN')) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Admin access required' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
 
     // Validate input
@@ -73,6 +98,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, fullName, password, roleIds } = validation.data
+
+    console.log('[API/USERS] Creating user:', email)
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -87,7 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify roles exist
-    const roles = await prisma.role.findMany({
+    const validRoles = await prisma.role.findMany({
       where: {
         id: {
           in: roleIds
@@ -95,7 +122,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    if (roles.length !== roleIds.length) {
+    if (validRoles.length !== roleIds.length) {
       return NextResponse.json(
         { error: 'One or more invalid role IDs' },
         { status: 400 }
@@ -128,6 +155,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    console.log('[API/USERS] User created successfully:', user.id)
+
     // Format response
     const formattedUser = {
       id: user.id,
@@ -145,9 +174,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(formattedUser, { status: 201 })
 
   } catch (error) {
-    console.error('Error creating user:', error)
+    console.error('[API/USERS] Error creating user:', error)
     return NextResponse.json(
-      { error: 'Failed to create user' },
+      { error: 'Failed to create user', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

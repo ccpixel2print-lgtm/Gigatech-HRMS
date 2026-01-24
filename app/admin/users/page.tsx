@@ -77,6 +77,7 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -109,11 +110,20 @@ export default function UserManagementPage() {
 
   const fetchUsers = async () => {
     try {
+      console.log('[USER_MGMT] Fetching users...')
       const response = await fetch('/api/users')
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.status}`)
+      }
+      
       const data = await response.json()
+      console.log('[USER_MGMT] Users fetched:', data.length)
       setUsers(data)
+      setError(null)
     } catch (error) {
-      console.error('Failed to fetch users:', error)
+      console.error('[USER_MGMT] Failed to fetch users:', error)
+      setError(error instanceof Error ? error.message : 'Failed to fetch users')
     } finally {
       setLoading(false)
     }
@@ -121,11 +131,18 @@ export default function UserManagementPage() {
 
   const fetchRoles = async () => {
     try {
+      console.log('[USER_MGMT] Fetching roles...')
       const response = await fetch('/api/roles')
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch roles: ${response.status}`)
+      }
+      
       const data = await response.json()
+      console.log('[USER_MGMT] Roles fetched:', data.length)
       setRoles(data)
     } catch (error) {
-      console.error('Failed to fetch roles:', error)
+      console.error('[USER_MGMT] Failed to fetch roles:', error)
     }
   }
 
@@ -266,6 +283,19 @@ export default function UserManagementPage() {
           {loading ? (
             <div className="flex justify-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center p-8 space-y-4">
+              <div className="text-destructive text-center">
+                <p className="font-semibold">Error loading users</p>
+                <p className="text-sm text-muted-foreground">{error}</p>
+              </div>
+              <Button onClick={() => {
+                setLoading(true)
+                fetchUsers()
+              }}>
+                Retry
+              </Button>
             </div>
           ) : (
             <Table>

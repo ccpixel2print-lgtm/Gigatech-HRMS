@@ -18,7 +18,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/login') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/static') ||
-    pathname === '/'
+    pathname === '/' ||
+    pathname === '/favicon.ico'
   ) {
     return NextResponse.next()
   }
@@ -50,6 +51,21 @@ export async function middleware(request: NextRequest) {
     })
     
     return response
+  }
+
+  // For API routes (except /api/auth), just add user headers and continue
+  // The API routes themselves will handle authorization
+  if (pathname.startsWith('/api/')) {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-user-id', payload.userId.toString())
+    requestHeaders.set('x-user-email', payload.email)
+    requestHeaders.set('x-user-roles', JSON.stringify(payload.roles))
+    
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders
+      }
+    })
   }
 
   // Check role-based access
