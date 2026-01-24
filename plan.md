@@ -28,10 +28,17 @@
 - [x] Implement Employee Creation with Transaction (User + Employee + Salary in one atomic operation)
 - [x] Add Employee Code Auto-generation (EMP001, EMP002, etc.)
 - [x] Add Username Auto-generation (firstname.lastname)
-- [x] Create Employee Onboarding Form (Personal, Bank, Statutory) - Multi-tab form with ShadCN Tabs
-- [x] Create Salary Config Form with Indian Standard breakdowns (Basic, HRA, DA, PF, ESI) - Tab 4 with real-time calculator
+- [x] Create Employee Onboarding Form with 4 tabs:
+  - [x] Tab 1: Personal Details (Name, DOB, Gender, Address, Emergency Contact)
+  - [x] Tab 2: Employment Details (Work Email, DOJ, Designation, Department, Employment Type)
+  - [x] Tab 3: Bank & Statutory Details (Bank Name, Account No, IFSC, PAN, Aadhar, UAN, ESIC)
+  - [x] Tab 4: Salary Structure (Basic, HRA, Conveyance, Medical, Special, PF, ESI, PT, Income Tax)
+- [x] Implement real-time Salary Calculator with CTC Preview
 - [x] Create Employee List Page (app/hr/employees/page.tsx) with table view
-- [x] Create HR Layout with navigation sidebar
+- [x] Create New Employee Page (app/hr/employees/new/page.tsx)
+- [x] Create HR Layout with navigation sidebar (app/hr/layout.tsx)
+- [x] Handle Decimal inputs properly (parse string to float)
+- [x] Map all fields exactly to EmployeeSalary model
 - [ ] Implement "Publish Employee" status workflow (Optional - can be added later)
 
 ## 4. Leave Management Engine
