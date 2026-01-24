@@ -15,11 +15,11 @@
     - [x] Map JSON fields (`AdminRequests`, `AuditLogs`) to `@db.JsonB`
 - [x] Configure `.env` and verify Neon DB connection via `prisma db push`
 
-## 2. Authentication & Role Management
-- [ ] Implement `lib/auth.ts` using JWT & JOSE
-- [ ] **LOOSE EDGE FIX:** Implement Login Logic with Rate Limiting (5 attempts = 15 min lock)
-- [ ] Create `middleware.ts` for RBAC protection
-- [ ] Create Seed Script (`scripts/seed.ts`) to create Admin/HR/TeamLead/Employee users
+## 2. Authentication & Role Management ✅ COMPLETED (Backend & Login)
+- [x] Implement `lib/auth.ts` using JWT & JOSE
+- [x] **LOOSE EDGE FIX:** Implement Login Logic with Rate Limiting (5 attempts = 15 min lock)
+- [x] Create `middleware.ts` for RBAC protection
+- [x] Create Seed Script (`scripts/seed.ts`) to create Admin/HR/TeamLead/Employee users
 - [ ] Create Admin User Management UI (Create/Edit/Soft-Delete)
 
 ## 3. HR Master Data (Employees & Salary)
