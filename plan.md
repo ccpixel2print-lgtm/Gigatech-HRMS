@@ -1,7 +1,7 @@
 # HR Lite - Implementation Plan (Phase I MVP)
 
 ## Project Status
-- Current Phase: 3. HR Master Data (Employees & Salary)
+- Current Phase: 4. Leave Management Engine
 - Status: IN PROGRESS
 
 ## 1. Foundation & Database Schema ✅ COMPLETED
@@ -42,10 +42,18 @@
 - [ ] Implement "Publish Employee" status workflow (Optional - can be added later)
 
 ## 4. Leave Management Engine
-- [ ] Create Leave Template Management (Admin)
-- [ ] Implement Holiday Calendar
+- [x] Create Leave Template Management (Seeded: Standard Policy 2026)
+- [x] Implement Holiday Calendar (Seeded: 6 major Indian holidays for 2026)
+- [x] Create Leave Application API (POST /api/leaves/applications) with validations:
+  - [x] Employee existence check
+  - [x] Leave type validation
+  - [x] Overlap check for APPROVED/PENDING leaves
+  - [x] Balance check (MVP: simple validation)
+  - [x] Status defaults to PENDING
 - [ ] **LOOSE EDGE FIX:** Implement "Sandwich Rule" logic helper function (Logic: Holiday/Weekend -> Leave -> Sandwich Check)
-- [ ] Create Leave Application Form & Approval Workflow (L1 -> L2)
+- [ ] Create Leave Application Form UI
+- [ ] Implement Leave Approval Workflow (L1 -> L2)
+- [ ] Create Leave Balance Initialization for existing employees
 
 ## 5. Payroll Engine (The Core)
 - [ ] **LOOSE EDGE FIX:** Implement strict Payroll Calculation Order:
