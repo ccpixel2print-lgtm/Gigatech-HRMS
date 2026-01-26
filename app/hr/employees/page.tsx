@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Loader2, User } from 'lucide-react'
+import { Plus, Loader2, User, Pencil, CheckCircle  } from 'lucide-react'
 import Link from "next/link";
-import { Pencil } from "lucide-react";
+//import { Pencil,CheckCircle } from "lucide-react";
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -73,6 +73,30 @@ export default function EmployeesPage() {
     }
   }
 
+
+    // ... other hooks ...
+    const [publishingId, setPublishingId] = useState<number | null>(null); // Track loading state per button
+
+    const handlePublish = async (id: number) => {
+      if(!confirm("Publish this employee? This will create their login access.")) return;
+      
+      setPublishingId(id);
+      try {
+        const res = await fetch(`/api/employees/${id.toString()}/publish`, { method: "POST" });
+        if (res.ok) {
+          alert("Employee Published Successfully!");
+          window.location.reload(); // Refresh to update status
+        } else {
+          const err = await res.json();
+          alert("Error: " + err.message);
+        }
+      } catch (e) {
+        alert("Failed to connect");
+      } finally {
+        setPublishingId(null);
+      }
+    };
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -158,6 +182,25 @@ export default function EmployeesPage() {
                           </Button>
                         </Link>
                       </div>
+                      {/* Publish Button */}
+                      {employee.status === "DRAFT" && (
+                        <Button 
+                          size="sm"
+                          variant="outline" 
+                          title="Publish Employee"
+                          className="text-green-600 border-green-200"
+                          onClick={() => handlePublish(employee.id)} // Now handlePublish exists!
+                          disabled={publishingId === employee.id}
+                        >
+                          {publishingId === employee.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4 mr-1" /> 
+                          )}
+                          
+                        </Button>
+                      )}
+
                     </TableCell>
                   </TableRow>
                 ))}

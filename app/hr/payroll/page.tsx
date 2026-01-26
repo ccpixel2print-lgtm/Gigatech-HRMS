@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Save, Lock, CheckCircle, Loader2 } from 'lucide-react'
+import Link from "next/link";
 
 interface PayrollRecord {
   id: number
@@ -263,6 +264,14 @@ export default function PayrollPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Payroll Manager</h1>
         <p className="text-gray-600">Generate and manage monthly payroll</p>
+      </div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Payroll Manager</h1>
+        <Link href="/hr/payroll/history">
+          <Button variant="outline">
+            Payroll History 📜
+          </Button>
+        </Link>
       </div>
 
       {/* Controls Section */}
