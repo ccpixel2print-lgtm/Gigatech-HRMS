@@ -1,6 +1,7 @@
 import { ReactNode } from 'react'
 import Link from 'next/link'
 import { Users, LayoutDashboard, Settings, LogOut, DollarSign } from 'lucide-react'
+import { LogoutButton } from "@/components/LogoutButton";
 
 export default function HRLayout({ children }: { children: ReactNode }) {
   return (
@@ -49,13 +50,9 @@ export default function HRLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="mt-auto pt-6">
-          <Link
-            href="/api/auth/logout"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors text-red-400"
-          >
-            <LogOut className="h-5 w-5" />
-            <span>Logout</span>
-          </Link>
+        <div className="mt-auto pt-6">
+            <LogoutButton />
+        </div>
         </div>
       </aside>
 

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Loader2, User } from 'lucide-react'
+import Link from "next/link";
+import { Pencil } from "lucide-react";
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,9 +26,7 @@ interface Employee {
   designation: string
   department: string
   status: string
-  user: {
-    email: string
-  }
+  personalEmail?: string | null;
 }
 
 export default function EmployeesPage() {
@@ -135,6 +135,7 @@ export default function EmployeesPage() {
                   <TableHead>Designation</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -144,10 +145,20 @@ export default function EmployeesPage() {
                     <TableCell>
                       {employee.firstName} {employee.lastName}
                     </TableCell>
-                    <TableCell>{employee.user.email}</TableCell>
+                    <TableCell>{(employee as any).personalEmail || "-"}</TableCell>
                     <TableCell>{employee.designation}</TableCell>
                     <TableCell>{employee.department}</TableCell>
                     <TableCell>{getStatusBadge(employee.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {/* Edit Button */}
+                        <Link href={`/hr/employees/${employee.id}/edit`}>
+                          <Button variant="ghost" size="icon" title="Edit Employee">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
