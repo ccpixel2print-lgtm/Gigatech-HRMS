@@ -2,13 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { EmployeeForm } from "@/components/employees/EmployeeForm";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function EditEmployeePage() {
   const params = useParams();
+  const searchParams = useSearchParams(); 
   const router = useRouter();
+  
+  // LOGIC: Check if URL has ?view=true
+  const isViewMode = searchParams.get("view") === "true";
+
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,26 +54,32 @@ export default function EditEmployeePage() {
       <div className="p-8 text-center text-red-500">
         <h2 className="text-xl font-bold">Error</h2>
         <p>{error}</p>
-        <button 
+        <Button 
+          variant="outline"
           onClick={() => router.back()}
-          className="mt-4 text-blue-600 hover:underline"
+          className="mt-4"
         >
           Go Back
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Edit Employee</CardTitle>
-        </CardHeader>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {isViewMode ? "Employee Details" : "Edit Employee"}
+        </h1>
+      </div>
+
+      <Card className="border-none shadow-none bg-transparent">
+        {/* We pass the fetched data AND the readOnly mode to the form */}
+        <EmployeeForm initialData={employee} readOnly={isViewMode} />
       </Card>
-      
-      {/* We pass the fetched data as initialData to the form */}
-      <EmployeeForm initialData={employee} />
     </div>
   );
 }

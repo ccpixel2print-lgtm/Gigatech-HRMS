@@ -1,541 +1,291 @@
-"use client"
+"use client";
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
-import { Save, Lock, CheckCircle, Loader2 } from 'lucide-react'
+import { useState, Fragment } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Save, Lock, Loader2, ChevronDown, ChevronUp, History } from "lucide-react";
 import Link from "next/link";
 
+// Helper to safely parse API strings to numbers
+const toNum = (val: string | number | null | undefined) => {
+  if (!val) return 0;
+  return typeof val === 'string' ? parseFloat(val) : val;
+};
+
+// Types matching your API response
 interface PayrollRecord {
-  id: number
-  employeeId: number
-  employee: {
-    employeeCode: string
-    firstName: string
-    lastName: string
-    designation: string
-  }
-  month: number
-  year: number
-  basicSalary: string
-  grossSalary: string
-  lopDays: string
-  lopDeduction: string
-  otherAllowances: string
-  otherDeductions: string
-  totalDeductions: string
-  netSalary: string
-  status: string
+  id: number; // Changed to number to match your DB
+  employee: { firstName: string; lastName: string; employeeCode: string };
+  basicSalary: string;
+  grossSalary: string; // Changed from grossEarnings
+  netSalary: string;   // Changed from netPay
+  lopDays: string;
+  otherAllowances: string; // Changed from otherAllowance
+  otherDeductions: string;
+  totalDeductions: string;
+  status: "DRAFT" | "PROCESSED" | "PAID";
 }
 
-const MONTHS = [
-  { value: 1, label: 'January' },
-  { value: 2, label: 'February' },
-  { value: 3, label: 'March' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'June' },
-  { value: 7, label: 'July' },
-  { value: 8, label: 'August' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'October' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'December' }
-]
-
-const YEARS = [2025, 2026, 2027, 2028, 2029, 2030]
-
 export default function PayrollPage() {
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
-  const [records, setRecords] = useState<PayrollRecord[]>([])
-  const [loading, setLoading] = useState(false)
-  const [savingIds, setSavingIds] = useState<Set<number>>(new Set())
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  
+  // Max allowed date (Next Month)
+  const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const maxMonthStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-  // Load or generate payroll
-  const handleLoadGenerate = async (e?: React.MouseEvent) => {
-    // FIX 1: Prevent form submission/page reload
-    if (e) {
-      e.preventDefault()
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
+  const [records, setRecords] = useState<PayrollRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
+  const toggleRow = (id: number) => {
+    const newSet = new Set(expandedRows);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setExpandedRows(newSet);
+  };
+
+  const handleGenerate = async () => {
+    if (!selectedMonth) return alert("Please select a month");
+
+    const [year, month] = selectedMonth.split("-").map(Number);
+    
+    // Future Check
+    const selectedDate = new Date(year, month - 1);
+    const today = new Date();
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    if (selectedDate > currentMonthStart) {
+       // Optional: Block future months if desired
+       // alert("Cannot generate payroll for future months.");
+       // return;
     }
 
-    // FIX 2: Block future month generation
-    const currentDate = new Date()
-    const currentYear = currentDate.getFullYear()
-    const currentMonth = currentDate.getMonth() + 1 // JavaScript months are 0-indexed
-
-    if (selectedYear > currentYear || 
-        (selectedYear === currentYear && selectedMonth > currentMonth)) {
-      alert('Cannot generate payroll for future months.')
-      return
-    }
-
-    setLoading(true)
+    setLoading(true);
     try {
-      // FIX 3: Try to load existing records first
-      const fetchRes = await fetch(`/api/payroll?month=${selectedMonth}&year=${selectedYear}`)
+      // 1. Fetch Existing
+      console.log(`Fetching: /api/payroll?month=${month}&year=${year}`);
+      const fetchRes = await fetch(`/api/payroll?month=${month}&year=${year}`);
       
       if (fetchRes.ok) {
-        const existingRecords = await fetchRes.json()
+        let existingRecords = await fetchRes.json();
         
         if (existingRecords.length > 0) {
-          // Records exist, just load them
-          setRecords(existingRecords)
-          alert(`Loaded ${existingRecords.length} existing payroll records`)
+          setRecords(existingRecords);
         } else {
-          // No records exist, generate new ones
+          // 2. Generate New if empty
+          console.log("Generating new...");
           const res = await fetch('/api/payroll', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ month: selectedMonth, year: selectedYear })
-          })
+            body: JSON.stringify({ month, year })
+          });
 
           if (res.ok) {
-            const data = await res.json()
-            
-            // Fetch the newly created records
-            const newFetchRes = await fetch(`/api/payroll?month=${selectedMonth}&year=${selectedYear}`)
+            // Re-fetch to get the fresh data
+            const newFetchRes = await fetch(`/api/payroll?month=${month}&year=${year}`);
             if (newFetchRes.ok) {
-              const fetchedRecords = await newFetchRes.json()
-              setRecords(fetchedRecords)
-              
-              if (data.summary.created > 0) {
-                alert(`Successfully generated payroll for ${data.summary.created} employees`)
-              }
+               setRecords(await newFetchRes.json());
             }
           } else {
-            const error = await res.json()
-            alert(`Error: ${error.error}`)
+            throw new Error((await res.json()).error);
           }
         }
       }
-    } catch (error) {
-      console.error('Error loading payroll:', error)
-      alert('Failed to load/generate payroll')
+    } catch (err: any) {
+      console.error(err);
+      alert("Error: " + err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  // Update local state when input changes
-  const handleInputChange = (id: number, field: string, value: string) => {
-    setRecords(prevRecords =>
-      prevRecords.map(record =>
-        record.id === id ? { ...record, [field]: value } : record
-      )
-    )
-  }
-
-  // Save individual record
-  const handleSave = async (record: PayrollRecord) => {
-    setSavingIds(prev => new Set(prev).add(record.id))
-    
+  const handleUpdate = async (record: PayrollRecord, action: "SAVE" | "PUBLISH") => {
+    setSavingId(record.id);
     try {
-      const res = await fetch('/api/payroll', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: record.id,
-          lopDays: parseFloat(record.lopDays) || 0,
-          otherAllowances: parseFloat(record.otherAllowances) || 0,
-          otherDeductions: parseFloat(record.otherDeductions) || 0
-        })
-      })
+      const payload = {
+        id: record.id,
+        lopDays: toNum(record.lopDays),
+        otherAllowances: toNum(record.otherAllowances),
+        otherDeductions: toNum(record.otherDeductions),
+        status: action === "PUBLISH" ? "PROCESSED" : record.status, // Map PUBLISH -> PROCESSED
+      };
 
-      if (res.ok) {
-        const updatedRecord = await res.json()
-        
-        // Update the record with recalculated values from backend
-        setRecords(prevRecords =>
-          prevRecords.map(r =>
-            r.id === record.id ? {
-              ...r,
-              lopDays: updatedRecord.lopDays,
-              lopDeduction: updatedRecord.lopDeduction,
-              otherAllowances: updatedRecord.otherAllowances,
-              otherDeductions: updatedRecord.otherDeductions,
-              grossSalary: updatedRecord.grossSalary,
-              totalDeductions: updatedRecord.totalDeductions,
-              netSalary: updatedRecord.netSalary
-            } : r
-          )
-        )
-        
-        alert('Payroll saved successfully!')
-      } else {
-        const error = await res.json()
-        alert(`Error: ${error.error}`)
-      }
-    } catch (error) {
-      console.error('Error saving payroll:', error)
-      alert('Failed to save payroll')
+      const res = await fetch("/api/payroll", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Update failed");
+      
+      const updatedRecord = await res.json();
+      
+      setRecords(prev => prev.map(r => r.id === record.id ? updatedRecord : r));
+      if(action === "PUBLISH") alert("Payroll Processed!");
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update record");
     } finally {
-      setSavingIds(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(record.id)
-        return newSet
-      })
+      setSavingId(null);
     }
-  }
+  };
 
-  // Publish/Process individual record
-  const handlePublish = async (record: PayrollRecord) => {
-    setSavingIds(prev => new Set(prev).add(record.id))
-    
-    try {
-      const res = await fetch('/api/payroll', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: record.id,
-          lopDays: parseFloat(record.lopDays) || 0,
-          otherAllowances: parseFloat(record.otherAllowances) || 0,
-          otherDeductions: parseFloat(record.otherDeductions) || 0,
-          status: 'PROCESSED'
-        })
-      })
-
-      if (res.ok) {
-        const updatedRecord = await res.json()
-        
-        // Update the record with new status and calculated values
-        setRecords(prevRecords =>
-          prevRecords.map(r =>
-            r.id === record.id ? {
-              ...r,
-              lopDays: updatedRecord.lopDays,
-              lopDeduction: updatedRecord.lopDeduction,
-              otherAllowances: updatedRecord.otherAllowances,
-              otherDeductions: updatedRecord.otherDeductions,
-              grossSalary: updatedRecord.grossSalary,
-              totalDeductions: updatedRecord.totalDeductions,
-              netSalary: updatedRecord.netSalary,
-              status: updatedRecord.status
-            } : r
-          )
-        )
-        
-        alert('Payroll published successfully!')
-      } else {
-        const error = await res.json()
-        alert(`Error: ${error.error}`)
-      }
-    } catch (error) {
-      console.error('Error publishing payroll:', error)
-      alert('Failed to publish payroll')
-    } finally {
-      setSavingIds(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(record.id)
-        return newSet
-      })
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, string> = {
-      DRAFT: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      PROCESSED: 'bg-green-100 text-green-800 border-green-300',
-      PAID: 'bg-blue-100 text-blue-800 border-blue-300',
-      CANCELLED: 'bg-red-100 text-red-800 border-red-300'
-    }
-
-    return (
-      <Badge variant="outline" className={variants[status] || ''}>
-        {status}
-      </Badge>
-    )
-  }
-
-  const formatCurrency = (value: string | number) => {
-    const num = typeof value === 'string' ? parseFloat(value) : value
-    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
-
-  const isLocked = (status: string) => {
-    return ['PROCESSED', 'PAID', 'CANCELLED'].includes(status)
-  }
+  const updateLocalField = (id: number, field: keyof PayrollRecord, value: string) => {
+    setRecords(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+  };
 
   return (
-    <div className="container mx-auto p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Payroll Manager</h1>
-        <p className="text-gray-600">Generate and manage monthly payroll</p>
-      </div>
+    <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Payroll Manager</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Payroll Generator</h1>
+          <p className="text-muted-foreground">Monthly salary processing</p>
+        </div>
+        
         <Link href="/hr/payroll/history">
-          <Button variant="outline">
-            Payroll History 📜
+          <Button variant="outline" className="gap-2">
+            <History className="h-4 w-4" /> History
           </Button>
         </Link>
       </div>
 
-      {/* Controls Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Payroll Period</CardTitle>
-          <CardDescription>Select month and year to load or generate payroll</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <Label htmlFor="month">Month</Label>
-              <select
-                id="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {MONTHS.map(month => (
-                  <option key={month.value} value={month.value}>
-                    {month.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex-1">
-              <Label htmlFor="year">Year</Label>
-              <select
-                id="year"
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {YEARS.map(year => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Button 
-              type="button"
-              onClick={handleLoadGenerate}
-              disabled={loading}
-              className="flex items-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                'Load / Generate Payroll'
-              )}
-            </Button>
+      <Card className="bg-slate-50">
+        <CardContent className="pt-6 flex gap-4 items-end">
+          <div className="space-y-2 w-64">
+            <label className="text-sm font-medium">Period</label>
+            <Input 
+              type="month" 
+              value={selectedMonth}
+              max={maxMonthStr}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-white"
+            />
           </div>
+          <Button onClick={handleGenerate} disabled={loading} type="button">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            Load Data
+          </Button>
         </CardContent>
       </Card>
 
-      {/* FIX 3: Summary Card */}
       {records.length > 0 && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Payroll Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Total Payout</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(
-                    records.reduce((sum, r) => sum + parseFloat(r.netSalary), 0)
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Status Breakdown</p>
-                <div className="flex gap-2 mt-1">
-                  <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
-                    {records.filter(r => r.status === 'DRAFT').length} Draft
-                  </Badge>
-                  <Badge variant="outline" className="bg-green-100 text-green-800">
-                    {records.filter(r => r.status === 'PROCESSED').length} Processed
-                  </Badge>
-                  <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                    {records.filter(r => r.status === 'PAID').length} Paid
-                  </Badge>
-                </div>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Employees</p>
-                <p className="text-2xl font-bold">
-                  {records.length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <div className="border rounded-lg bg-white overflow-hidden">
+          <Table>
+            <TableHeader className="bg-slate-100">
+              <TableRow>
+                <TableHead className="w-[50px]"></TableHead>
+                <TableHead>Employee</TableHead>
+                <TableHead>LOP Days</TableHead>
+                <TableHead className="text-right">Net Pay</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {records.map((record) => {
+                const isLocked = record.status === "PROCESSED" || record.status === "PAID";
+                const isExpanded = expandedRows.has(record.id);
 
-      {/* Data Table */}
-      {records.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Payroll Records</CardTitle>
-            <CardDescription>
-              Showing {records.length} records for {MONTHS.find(m => m.value === selectedMonth)?.label} {selectedYear}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-semibold">Employee</th>
-                    <th className="text-right py-3 px-4 font-semibold">Basic Pay</th>
-                    <th className="text-right py-3 px-4 font-semibold">Gross Pay</th>
-                    <th className="text-center py-3 px-4 font-semibold">LOP Days</th>
-                    <th className="text-center py-3 px-4 font-semibold">Bonus</th>
-                    <th className="text-center py-3 px-4 font-semibold">Extra Ded.</th>
-                    <th className="text-right py-3 px-4 font-semibold">Deductions</th>
-                    <th className="text-right py-3 px-4 font-semibold">Net Pay</th>
-                    <th className="text-center py-3 px-4 font-semibold">Status</th>
-                    <th className="text-center py-3 px-4 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((record) => {
-                    const locked = isLocked(record.status)
-                    const saving = savingIds.has(record.id)
+                return (
+                  <Fragment key={record.id}>
+                    <TableRow className={isExpanded ? "bg-blue-50/50 border-b-0" : ""}>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggleRow(record.id)}>
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{record.employee.firstName} {record.employee.lastName}</div>
+                        <div className="text-xs text-muted-foreground">{record.employee.employeeCode}</div>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <Input 
+                          type="number" 
+                          className="w-20 h-8 bg-white" 
+                          value={record.lopDays} 
+                          disabled={isLocked}
+                          onChange={(e) => updateLocalField(record.id, "lopDays", e.target.value)}
+                        />
+                      </TableCell>
+                      
+                      <TableCell className="text-right font-bold text-blue-600">
+                        ₹{toNum(record.netSalary).toFixed(2)}
+                      </TableCell>
+                      
+                      <TableCell>
+                        <Badge variant={isLocked ? "default" : "secondary"}>{record.status}</Badge>
+                      </TableCell>
+                      
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {!isLocked && (
+                            <>
+                              <Button size="sm" variant="ghost" onClick={() => handleUpdate(record, "SAVE")} disabled={savingId === record.id}>
+                                {savingId === record.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              </Button>
+                              <Button size="sm" onClick={() => handleUpdate(record, "PUBLISH")} disabled={savingId === record.id}>
+                                <Lock className="w-4 h-4 mr-1" /> Process
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
 
-                    return (
-                      <tr key={record.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">
-                          <div>
-                            <div className="font-medium">
-                              {record.employee.firstName} {record.employee.lastName}
+                    {/* DETAIL ROW */}
+                    {isExpanded && (
+                      <TableRow className="bg-blue-50/30 hover:bg-blue-50/30">
+                        <TableCell colSpan={6} className="p-4 pt-0">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-md bg-white">
+                            
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium text-muted-foreground">BREAKDOWN</p>
+                              <p className="text-sm">Basic: ₹{toNum(record.basicSalary).toFixed(2)}</p>
+                              <p className="text-sm">Gross: ₹{toNum(record.grossSalary).toFixed(2)}</p>
+                              <p className="text-sm text-red-500">Total Ded: ₹{toNum(record.totalDeductions).toFixed(2)}</p>
                             </div>
-                            <div className="text-sm text-gray-600">
-                              {record.employee.employeeCode} • {record.employee.designation}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right font-medium">
-                          {formatCurrency(record.basicSalary)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-medium">
-                          {formatCurrency(record.grossSalary)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <Input
-                            type="number"
-                            step="0.5"
-                            value={record.lopDays}
-                            onChange={(e) => handleInputChange(record.id, 'lopDays', e.target.value)}
-                            disabled={locked}
-                            className="w-20 text-center"
-                          />
-                        </td>
-                        <td className="py-3 px-4">
-                          <Input
-                            type="number"
-                            step="100"
-                            value={record.otherAllowances}
-                            onChange={(e) => handleInputChange(record.id, 'otherAllowances', e.target.value)}
-                            disabled={locked}
-                            className="w-24 text-center"
-                          />
-                        </td>
-                        <td className="py-3 px-4">
-                          <Input
-                            type="number"
-                            step="100"
-                            value={record.otherDeductions}
-                            onChange={(e) => handleInputChange(record.id, 'otherDeductions', e.target.value)}
-                            disabled={locked}
-                            className="w-24 text-center"
-                          />
-                        </td>
-                        <td className="py-3 px-4 text-right font-medium text-red-600">
-                          {formatCurrency(record.totalDeductions)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-bold text-green-600">
-                          {formatCurrency(record.netSalary)}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          {getStatusBadge(record.status)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex justify-center gap-2">
-                            {locked ? (
-                              <Lock className="h-5 w-5 text-gray-400" />
-                            ) : (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleSave(record)}
-                                  disabled={saving}
-                                  className="flex items-center gap-1"
-                                >
-                                  {saving ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Save className="h-4 w-4" />
-                                  )}
-                                  Save
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handlePublish(record)}
-                                  disabled={saving}
-                                  className="flex items-center gap-1"
-                                >
-                                  {saving ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="h-4 w-4" />
-                                  )}
-                                  Publish
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 font-bold">
-                    <td className="py-3 px-4" colSpan={6}>Total</td>
-                    <td className="py-3 px-4 text-right text-red-600">
-                      {formatCurrency(
-                        records.reduce((sum, r) => sum + parseFloat(r.totalDeductions), 0)
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-right text-green-600">
-                      {formatCurrency(
-                        records.reduce((sum, r) => sum + parseFloat(r.netSalary), 0)
-                      )}
-                    </td>
-                    <td colSpan={2}></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Empty State */}
-      {!loading && records.length === 0 && (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-gray-500 mb-4">No payroll records found</p>
-            <p className="text-sm text-gray-400">
-              Select a month and year, then click "Load / Generate Payroll" to get started
-            </p>
-          </CardContent>
-        </Card>
+                            <div className="space-y-2">
+                              <label className="text-xs font-medium text-green-600">BONUS / ALLOWANCE</label>
+                              <Input 
+                                type="number" 
+                                className="h-9" 
+                                value={record.otherAllowances} 
+                                disabled={isLocked}
+                                onChange={(e) => updateLocalField(record.id, "otherAllowances", e.target.value)}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-xs font-medium text-red-600">EXTRA DEDUCTIONS</label>
+                              <Input 
+                                type="number" 
+                                className="h-9" 
+                                value={record.otherDeductions} 
+                                disabled={isLocked}
+                                onChange={(e) => updateLocalField(record.id, "otherDeductions", e.target.value)}
+                              />
+                            </div>
+
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
-  )
+  );
 }

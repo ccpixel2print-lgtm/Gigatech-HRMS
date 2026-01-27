@@ -5,27 +5,32 @@ import { Prisma } from '@prisma/client';
 // ------------------------------------------------------------------
 // GET: Fetch Single Employee
 // ------------------------------------------------------------------
+// GET: Fetch Single Employee
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } // FIX 1: params is a Promise
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // FIX 2: Await the params
-
-    if (!id) return NextResponse.json({ message: "ID Missing" }, { status: 400 });
-
+    const { id } = await params;
+    
+    // Fetch from DB
     const employee = await prisma.employee.findUnique({
-      where: { id: parseInt(id) }, 
-      include: {
-        salary: true, 
-      },
+      where: { id: parseInt(id) },
+      include: { salary: true }, 
     });
 
     if (!employee) {
       return NextResponse.json({ message: 'Employee not found' }, { status: 404 });
     }
 
-    return NextResponse.json(employee);
+    // TRANSFORM DATA: Map personalEmail -> email for the frontend form
+    const responseData = {
+        ...employee,
+        email: employee.personalEmail, // <--- CRITICAL FIX
+        // Keep personalEmail too just in case
+    };
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Error fetching employee:', error);
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
