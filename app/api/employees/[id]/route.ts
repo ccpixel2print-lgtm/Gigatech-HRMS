@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // Verify this import path matches your project structure
+import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
 // ------------------------------------------------------------------
 // GET: Fetch Single Employee
 // ------------------------------------------------------------------
-// GET: Fetch Single Employee
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,7 +12,6 @@ export async function GET(
   try {
     const { id } = await params;
     
-    // Fetch from DB
     const employee = await prisma.employee.findUnique({
       where: { id: parseInt(id) },
       include: { salary: true }, 
@@ -23,11 +21,10 @@ export async function GET(
       return NextResponse.json({ message: 'Employee not found' }, { status: 404 });
     }
 
-    // TRANSFORM DATA: Map personalEmail -> email for the frontend form
+    // Map personalEmail -> email for the frontend form
     const responseData = {
         ...employee,
-        email: employee.personalEmail, // <--- CRITICAL FIX
-        // Keep personalEmail too just in case
+        email: employee.personalEmail, 
     };
 
     return NextResponse.json(responseData);
@@ -48,10 +45,10 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
     
-    // Destructure to separate Salary, System fields, and Personal Data
+    // Destructure to separate Salary, System fields, and Mismatched Fields
     const { 
       // 1. Salary Fields
-      basicSalary, hra, da, pf, esi, specialAllowance, professionalTax, 
+      basicSalary, hra, da, ta, pf, esi, specialAllowance, professionalTax, 
       
       // 2. Junk/System Fields (Exclude these from update)
       id: _id, 
@@ -60,20 +57,38 @@ export async function PATCH(
       createdAt, 
       updatedAt,
 
-      // 3. The Mismatch Field
+      // 3. Mismatched Fields (Extract so they don't go into 'otherDetails')
       email, 
+      accountNumber, // <--- EXTRACT THIS
+      ifscCode,      // <--- EXTRACT THIS
       
-      // 4. Everything else
+      // 4. Everything else (Directly mapping fields like firstName, bankName)
       ...otherDetails 
     } = body;
 
     // Create the clean object for Employee Table
     const employeeData: any = { ...otherDetails };
     
-    // MAP 'email' to 'personalEmail'
-    if (email) {
+    // MAP 'email' -> 'personalEmail'
+    if (email !== undefined) {
         employeeData.personalEmail = email;
     }
+
+    // MAP 'accountNumber' -> 'bankAccountNumber'
+    if (accountNumber !== undefined) {
+        employeeData.bankAccountNumber = accountNumber;
+    }
+
+    // MAP 'ifscCode' -> 'bankIfscCode'
+    if (ifscCode !== undefined) {
+        employeeData.bankIfscCode = ifscCode;
+    }
+
+    // FIX: Convert empty strings to null for unique/optional fields
+    if (employeeData.panNumber === "") employeeData.panNumber = null;
+    if (employeeData.uanNumber === "") employeeData.uanNumber = null;
+    if (employeeData.bankAccountNumber === "") employeeData.bankAccountNumber = null;
+    if (employeeData.employeeCode === "") delete employeeData.employeeCode; 
 
     const updatedEmployee = await prisma.$transaction(async (tx) => {
       // 1. Update Employee Table
@@ -84,13 +99,16 @@ export async function PATCH(
         });
       }
 
-      // 2. Update Salary Table (Only if basicSalary is defined)
+      // 2. Update Salary Table
       if (basicSalary !== undefined) {
         await tx.employeeSalary.update({
           where: { employeeId: parseInt(id) },
           data: {
             basicSalary: Number(basicSalary),
             hra: Number(hra || 0),
+            da: Number(da || 0),
+            ta: Number(ta || 0),
+            providentFund: Number(pf || 0),
             esi: Number(esi || 0),
             specialAllowance: Number(specialAllowance || 0),
             professionalTax: Number(professionalTax || 0),
@@ -107,6 +125,9 @@ export async function PATCH(
     return NextResponse.json(updatedEmployee);
   } catch (error) {
     console.error('Error updating employee:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return NextResponse.json({ message: 'Constraint violation: Email or PAN already exists.' }, { status: 409 });
+    }
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }
 }

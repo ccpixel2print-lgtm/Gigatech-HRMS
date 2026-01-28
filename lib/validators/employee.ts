@@ -21,6 +21,7 @@ export const employeeSchema = z.object({
   basicSalary: z.coerce.number().min(1, "Basic Salary is required"),
   hra: z.coerce.number().default(0),
   da: z.coerce.number().default(0),
+  ta: z.coerce.number().default(0),
   specialAllowance: z.coerce.number().default(0),
   pf: z.coerce.number().default(0),
   esi: z.coerce.number().default(0),

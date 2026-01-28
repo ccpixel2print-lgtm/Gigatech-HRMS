@@ -7,9 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, User, Lock, Shield } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 export default function HRSettingsPage() {
   // Profile State
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams.get("tab") || "general";
   const [profile, setProfile] = useState({ fullName: "", email: "" });
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -86,7 +89,7 @@ export default function HRSettingsPage() {
         <p className="text-muted-foreground">Manage your account and preferences</p>
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="grid w-full md:w-[400px] grid-cols-2">
           <TabsTrigger value="general">
             <User className="w-4 h-4 mr-2" /> Profile

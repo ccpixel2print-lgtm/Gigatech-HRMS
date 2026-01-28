@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Users, LayoutDashboard, Settings, DollarSign } from 'lucide-react'
 import { LogoutButton } from "@/components/LogoutButton";
 import { HeaderProfile } from "@/components/HeaderProfile"; // New Component
+import { HeaderUserInfo } from "@/components/HeaderUserInfo";
 
 export default function HRLayout({ children }: { children: ReactNode }) {
   return (
@@ -62,10 +63,10 @@ export default function HRLayout({ children }: { children: ReactNode }) {
         {/* TOP HEADER */}
         <header className="h-16 bg-white dark:bg-slate-950 border-b flex items-center justify-end px-8 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="text-right hidden md:block">
-              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">HR Admin</p>
-              <p className="text-xs text-slate-500">hr@gigatech.com</p>
-            </div>
+            
+            {/* REPLACE THE HARDCODED TEXT DIV WITH THIS: */}
+            <HeaderUserInfo role="HR" />
+            
             {/* Safe Client Component */}
             <HeaderProfile />
           </div>

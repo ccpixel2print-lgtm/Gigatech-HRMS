@@ -55,48 +55,43 @@ export default function PayrollPage() {
 
     const [year, month] = selectedMonth.split("-").map(Number);
     
-    // Future Check
+    // Future Check (Optional)
     const selectedDate = new Date(year, month - 1);
     const today = new Date();
     const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     
     if (selectedDate > currentMonthStart) {
-       // Optional: Block future months if desired
        // alert("Cannot generate payroll for future months.");
        // return;
     }
 
     setLoading(true);
     try {
-      // 1. Fetch Existing
+      // STEP 1: Run Generation Logic (Adds missing employees, skips existing)
+      console.log("Syncing Payroll...");
+      const genRes = await fetch('/api/payroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month, year })
+      });
+
+      // We don't care if it created 0 or 10 records, just ensure it ran.
+      if (!genRes.ok) {
+         // If error is not "already exists", throw it
+         const errData = await genRes.json();
+         console.warn("Generation Warning:", errData);
+      }
+
+      // STEP 2: Fetch Everything (Old + New)
       console.log(`Fetching: /api/payroll?month=${month}&year=${year}`);
       const fetchRes = await fetch(`/api/payroll?month=${month}&year=${year}`);
       
       if (fetchRes.ok) {
-        let existingRecords = await fetchRes.json();
-        
-        if (existingRecords.length > 0) {
-          setRecords(existingRecords);
-        } else {
-          // 2. Generate New if empty
-          console.log("Generating new...");
-          const res = await fetch('/api/payroll', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ month, year })
-          });
-
-          if (res.ok) {
-            // Re-fetch to get the fresh data
-            const newFetchRes = await fetch(`/api/payroll?month=${month}&year=${year}`);
-            if (newFetchRes.ok) {
-               setRecords(await newFetchRes.json());
-            }
-          } else {
-            throw new Error((await res.json()).error);
-          }
-        }
+        setRecords(await fetchRes.json());
+      } else {
+        throw new Error("Failed to load records");
       }
+
     } catch (err: any) {
       console.error(err);
       alert("Error: " + err.message);

@@ -39,6 +39,7 @@ export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProp
     basicSalary: Number(initialData?.salary?.basicSalary || initialData?.basicSalary || 0),
     hra: Number(initialData?.salary?.hra || initialData?.hra || 0),
     da: Number(initialData?.salary?.da || initialData?.da || 0),
+    ta: Number(initialData?.salary?.ta || initialData?.ta || 0),
     pf: Number(initialData?.salary?.pf || initialData?.pf || 0),
     esi: Number(initialData?.salary?.esi || initialData?.esi || 0),
     specialAllowance: Number(initialData?.salary?.specialAllowance || initialData?.specialAllowance || 0),
@@ -54,12 +55,13 @@ export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProp
   const basic = Number(form.watch("basicSalary") || 0);
   const hra = Number(form.watch("hra") || 0);
   const da = Number(form.watch("da") || 0);
+  const ta = Number(form.watch("ta") || 0);
   const special = Number(form.watch("specialAllowance") || 0);
   const pf = Number(form.watch("pf") || 0);
   const pt = Number(form.watch("professionalTax") || 0);
   const esi = Number(form.watch("esi") || 0);
   
-  const gross = basic + hra + da + special;
+  const gross = basic + hra + da + ta + special;
   const deductions = pf + pt + esi;
   const net = gross - deductions;
 
@@ -192,6 +194,9 @@ export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProp
                     )} />
                     <FormField control={form.control as any} name="da" render={({ field }) => (
                       <FormItem><FormLabel>DA</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.value)} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control as any} name="ta" render={({ field }) => (
+                      <FormItem><FormLabel>TA (Transport)</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.value)} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control as any} name="specialAllowance" render={({ field }) => (
                       <FormItem><FormLabel>Special Allowance</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.value)} /></FormControl><FormMessage /></FormItem>

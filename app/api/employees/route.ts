@@ -135,19 +135,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('[API/EMPLOYEES] Received body:', JSON.stringify(body, null, 2))
 
-    // Validate input with the simplified schema
     const validation = employeeSchema.safeParse(body)
     if (!validation.success) {
-      console.error('[API/EMPLOYEES] Validation failed:', validation.error.errors)
       return NextResponse.json(
-        { error: 'Validation failed', details: validation.error.errors },
+        { error: 'Validation failed', details: validation.error.format() },
         { status: 400 }
       )
     }
 
     const data = validation.data
-
-    console.log('[API/EMPLOYEES] Creating employee:', data.firstName, data.lastName)
 
     // Check if work email already exists
     const existingUser = await prisma.user.findUnique({
@@ -156,42 +152,33 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       return NextResponse.json(
-        { error: 'Work email already exists' },
+        { error: 'User with this email already exists' },
         { status: 409 }
       )
     }
 
-    // Check for duplicate PAN if provided
+    // Check PAN
     if (data.panNumber) {
       const existingPan = await prisma.employee.findUnique({
         where: { panNumber: data.panNumber }
       })
       if (existingPan) {
-        return NextResponse.json(
-          { error: 'PAN number already exists' },
-          { status: 409 }
-        )
+        return NextResponse.json({ error: 'PAN number already exists' }, { status: 409 })
       }
     }
 
-    // Generate employee code and username
     const employeeCode = await generateEmployeeCode()
-    const username = await generateUsername(data.firstName, data.lastName)
-    const password = '1234' // Default password
+    const password = '1234' 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
 
-    console.log('[API/EMPLOYEES] Generated employee code:', employeeCode)
-    console.log('[API/EMPLOYEES] Generated username:', username)
-
     // Calculate salary values
-    const gross = data.basicSalary + data.hra + data.da + data.specialAllowance
+    const gross = data.basicSalary + data.hra + data.da + data.ta + data.specialAllowance; // Added TA
     const deductions = data.pf + data.esi + data.professionalTax
-    const netAnnual = gross - deductions
-    const netMonthly = netAnnual / 12
+    const netAnnual = (gross - deductions) * 12; // Annual = Monthly * 12
+    const netMonthly = gross - deductions;
 
-    // Create employee and user in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create User account
+      // 1. Create User
       const user = await tx.user.create({
         data: {
           email: data.email,
@@ -202,68 +189,65 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // 2. Assign EMPLOYEE role
-      const employeeRole = await tx.role.findUnique({
-        where: { name: 'EMPLOYEE' }
-      })
-
+      // 2. Assign Role
+      const employeeRole = await tx.role.findUnique({ where: { name: 'EMPLOYEE' } })
       if (employeeRole) {
         await tx.userRole.create({
-          data: {
-            userId: user.id,
-            roleId: employeeRole.id,
-          }
+          data: { userId: user.id, roleId: employeeRole.id }
         })
       }
 
-      // 3. Create Employee record
+      // 3. Create Employee (FIXED MAPPING)
       const employee = await tx.employee.create({
         data: {
           userId: user.id,
           employeeCode: employeeCode,
           firstName: data.firstName,
           lastName: data.lastName,
-          dateOfBirth: new Date('1990-01-01'), // Default DOB
-          gender: 'MALE', // Default gender
-          personalPhone: '0000000000', // Default phone
+          personalEmail: data.email, // <--- FIX 1: Map Email to PersonalEmail
+          personalPhone: data.personalPhone || '', 
+          dateOfBirth: data.dateOfBirth || new Date('1900-01-01'),
+          gender: data.gender || 'MALE', 
           dateOfJoining: data.dateOfJoining,
-          employmentType: 'FULL_TIME', // Default
+          employmentType: data.employmentType || 'FULL_TIME', 
           designation: data.designation || 'Employee',
           department: data.department || 'General',
-          panNumber: data.panNumber,
-          uanNumber: data.uanNumber,
+          panNumber: data.panNumber || null,
+          uanNumber: data.uanNumber || null,
           bankName: data.bankName,
-          bankAccountNumber: data.accountNumber,
+          bankAccountNumber: data.accountNumber || null, // Ensure key matches schema/zod
           bankIfscCode: data.ifscCode,
+          currentAddress: data.currentAddress,
           status: 'DRAFT',
         },
         include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              fullName: true,
-            }
-          }
+          user: { select: { id: true, email: true, fullName: true } }
         }
       })
 
-      // 4. Create EmployeeSalary record
+      // 4. Create Salary (FIXED MAPPING)
       const salary = await tx.employeeSalary.create({
         data: {
           employeeId: employee.id,
-          ctcAnnual: new Prisma.Decimal(gross),
+          ctcAnnual: new Prisma.Decimal(gross * 12),
           basicSalary: new Prisma.Decimal(data.basicSalary),
           hra: new Prisma.Decimal(data.hra),
-          conveyanceAllowance: new Prisma.Decimal(data.da), // Using DA as conveyance
+          
+          da: new Prisma.Decimal(data.da), // <--- FIX 2: Map DA to DA
+          ta: new Prisma.Decimal(data.ta), // <--- FIX 2: Map TA to TA
+          
+          conveyanceAllowance: new Prisma.Decimal(0), // Zero out unused legacy fields
           medicalAllowance: new Prisma.Decimal(0),
+          
           specialAllowance: new Prisma.Decimal(data.specialAllowance),
           otherAllowances: new Prisma.Decimal(0),
+          
           providentFund: new Prisma.Decimal(data.pf),
           esi: new Prisma.Decimal(data.esi),
           professionalTax: new Prisma.Decimal(data.professionalTax),
           incomeTax: new Prisma.Decimal(0),
           otherDeductions: new Prisma.Decimal(0),
+          
           netSalaryAnnual: new Prisma.Decimal(netAnnual),
           netSalaryMonthly: new Prisma.Decimal(netMonthly),
           effectiveFrom: data.dateOfJoining,
@@ -274,36 +258,19 @@ export async function POST(request: NextRequest) {
       return { employee, salary }
     })
 
-    console.log('[API/EMPLOYEES] Employee created successfully:', result.employee.id)
-
-    // Return created employee with salary
-    return NextResponse.json(
-      {
-        ...result.employee,
-        salary: result.salary,
-      },
-      { status: 201 }
-    )
+    return NextResponse.json({ ...result.employee, salary: result.salary }, { status: 201 })
 
   } catch (error) {
-    console.error('[API/EMPLOYEES] Error creating employee:', error)
-    
-    // Handle Prisma unique constraint violations
+    console.error('[API/EMPLOYEES] Error:', error)
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
         return NextResponse.json(
-          { error: 'A unique constraint would be violated. Please check email, PAN, or UAN numbers.' },
+          { error: 'Constraint violation: Email or PAN already exists.' },
           { status: 409 }
         )
       }
     }
-    
-    return NextResponse.json(
-      { 
-        error: 'Failed to create employee', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to create employee' }, { status: 500 })
   }
 }
+
