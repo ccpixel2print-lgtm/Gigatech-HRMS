@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Gigatech HRMS Lite",
   description: "Gigatech HRMS Lite P1 - MVP",
+  icons: {
+    icon: "/Gigatech-logo.png",
+  },
 };
 
 export default function RootLayout({

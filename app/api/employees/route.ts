@@ -8,24 +8,35 @@ const SALT_ROUNDS = 10
 
 /**
  * Generate next employee code
- * Format: EMP001, EMP002, ..., EMP999, EMP1000
+ * Format: GGS1000, GGS1001, ...
  */
 async function generateEmployeeCode(): Promise<string> {
+  // Find the last employee that matches the new format "GGS"
   const lastEmployee = await prisma.employee.findFirst({
-    orderBy: { employeeCode: 'desc' },
+    where: { 
+      employeeCode: { startsWith: 'GGS' } 
+    },
+    // We order by ID desc to get the most recently created one
+    // (Ordering by string code can be buggy: "GGS9" > "GGS10" is false)
+    orderBy: { id: 'desc' }, 
     select: { employeeCode: true }
   })
 
   if (!lastEmployee) {
-    return 'EMP001'
+    // STARTING POINT: No existing GGS employees, start at 1000
+    return 'GGS1000';
   }
 
-  // Extract number from last employee code (e.g., "EMP001" -> 1)
-  const lastNumber = parseInt(lastEmployee.employeeCode.replace('EMP', ''))
-  const nextNumber = lastNumber + 1
+  // Extract number (e.g., "GGS1005" -> 1005)
+  // We use regex to remove non-digits just to be safe
+  const lastNumber = parseInt(lastEmployee.employeeCode.replace(/\D/g, ''));
+  
+  if (isNaN(lastNumber)) return 'GGS1000'; // Fallback
 
-  // Format with leading zeros (EMP001, EMP002, etc.)
-  return `EMP${nextNumber.toString().padStart(3, '0')}`
+  const nextNumber = lastNumber + 1;
+
+  // Return format GGS1001
+  return `GGS${nextNumber}`;
 }
 
 /**

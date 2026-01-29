@@ -31,6 +31,7 @@ export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProp
     department: initialData?.department || "",
     employmentType: initialData?.employmentType || "FULL_TIME",
     dateOfJoining: initialData?.dateOfJoining ? new Date(initialData.dateOfJoining) : undefined,
+    dateOfBirth: initialData?.dateOfBirth ? new Date(initialData.dateOfBirth) : undefined,
     bankName: initialData?.bankName || "",
     accountNumber: initialData?.accountNumber || "",
     ifscCode: initialData?.ifscCode || "",
