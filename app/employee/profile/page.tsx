@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react"; // Added Suspense
 import { EmployeeForm } from "@/components/employees/EmployeeForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,13 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSearchParams } from "next/navigation";
 
-export default function EmployeeProfilePage() {
+// 1. Rename the main logic component (Not exported)
+function ProfileContent() {
   const searchParams = useSearchParams();
-  const defaultTab = searchParams.get("tab") || "general"; // Default to general if no param
+  const defaultTab = searchParams.get("tab") || "details";
+
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // Password State
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
   const [savingPass, setSavingPass] = useState(false);
 
@@ -64,17 +65,14 @@ export default function EmployeeProfilePage() {
           <TabsTrigger value="security"><Lock className="w-4 h-4 mr-2"/> Security</TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: EMPLOYEE DETAILS (READ ONLY) */}
         <TabsContent value="details" className="mt-6">
            {employee ? (
-             // REUSING THE FORM COMPONENT IN READ-ONLY MODE
              <EmployeeForm initialData={employee} readOnly={true} />
            ) : (
-             <Card><CardContent className="p-8">No employee record linked to your account.</CardContent></Card>
+             <Card><CardContent className="p-8">No employee record linked.</CardContent></Card>
            )}
         </TabsContent>
 
-        {/* TAB 2: CHANGE PASSWORD */}
         <TabsContent value="security" className="mt-6">
            <Card>
              <CardHeader><CardTitle>Change Password</CardTitle></CardHeader>
@@ -101,5 +99,14 @@ export default function EmployeeProfilePage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// 2. Export the Wrapper Component with Suspense
+export default function EmployeeProfilePage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>}>
+      <ProfileContent />
+    </Suspense>
   );
 }

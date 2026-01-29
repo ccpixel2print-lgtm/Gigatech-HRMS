@@ -1,14 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react' // Added Suspense
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { AlertCircle, Lock, Mail } from 'lucide-react'
+import { AlertCircle, Lock, Mail, Loader2 } from 'lucide-react' // Added Loader2 for fallback
 
-export default function LoginPage() {
+// 1. Rename original component to LoginContent (Not exported)
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/employee'
@@ -129,16 +130,6 @@ export default function LoginPage() {
                 {isLoading ? 'Signing in...' : 'Sign in'}
               </Button>
             </form>
-
-            <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-              <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
-                <p className="font-semibold">Default Test Credentials:</p>
-                <p>Admin: admin@gigatech.com / 1234</p>
-                <p>HR: hr@gigatech.com / 1234</p>
-                <p>Team Lead: teamlead@gigatech.com / 1234</p>
-                <p>Employee: employee@gigatech.com / 1234</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
@@ -147,5 +138,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// 2. Export Wrapper Component
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   )
 }

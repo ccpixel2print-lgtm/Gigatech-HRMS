@@ -241,8 +241,11 @@ export async function POST(request: NextRequest) {
 
     // If balance exists and leave is paid, check if sufficient balance
     if (leaveBalance && leaveType.isPaid) {
-      const availableBalance = leaveBalance.closing - leaveBalance.used;
-      if (availableBalance < totalDays) {
+      const closing = Number(leaveBalance.closing);
+      const used = Number(leaveBalance.used);
+      const availableBalance = closing - used;
+      
+      if (availableBalance < Number(totalDays)) {
         return NextResponse.json(
           {
             error: 'Insufficient leave balance',

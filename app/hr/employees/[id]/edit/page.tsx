@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { EmployeeForm } from "@/components/employees/EmployeeForm";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function EditEmployeePage() {
+// 1. Internal Logic Component
+function EditContent() {
   const params = useParams();
   const searchParams = useSearchParams(); 
   const router = useRouter();
   
-  // LOGIC: Check if URL has ?view=true
+  // Logic dependent on Search Params
   const isViewMode = searchParams.get("view") === "true";
 
   const [employee, setEmployee] = useState(null);
@@ -77,9 +78,17 @@ export default function EditEmployeePage() {
       </div>
 
       <Card className="border-none shadow-none bg-transparent">
-        {/* We pass the fetched data AND the readOnly mode to the form */}
         <EmployeeForm initialData={employee} readOnly={isViewMode} />
       </Card>
     </div>
+  );
+}
+
+// 2. Export Default Wrapper
+export default function EditEmployeePage() {
+  return (
+    <Suspense fallback={<div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <EditContent />
+    </Suspense>
   );
 }

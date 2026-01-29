@@ -1,18 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, User, Lock, Shield } from "lucide-react";
+import { Loader2, User, Lock } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
-export default function HRSettingsPage() {
-  // Profile State
+// 1. Internal Logic Component (Not Exported)
+function SettingsContent() {
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get("tab") || "general";
+
+  // Profile State
   const [profile, setProfile] = useState({ fullName: "", email: "" });
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -21,7 +23,7 @@ export default function HRSettingsPage() {
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
   const [savingPass, setSavingPass] = useState(false);
 
-  // 1. Fetch User Data on Mount
+  // Fetch User Data
   useEffect(() => {
     fetch("/api/auth/me")
       .then((res) => res.json())
@@ -33,7 +35,7 @@ export default function HRSettingsPage() {
       .finally(() => setLoadingProfile(false));
   }, []);
 
-  // 2. Handle Profile Update
+  // Handle Profile Update
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingProfile(true);
@@ -52,7 +54,7 @@ export default function HRSettingsPage() {
     }
   };
 
-  // 3. Handle Password Update
+  // Handle Password Update
   const handleChangePass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) return alert("New passwords do not match");
@@ -99,7 +101,7 @@ export default function HRSettingsPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: GENERAL (PROFILE) */}
+        {/* TAB 1: GENERAL */}
         <TabsContent value="general" className="mt-6">
           <Card>
             <CardHeader>
@@ -123,7 +125,7 @@ export default function HRSettingsPage() {
                     disabled 
                     className="bg-slate-50 text-slate-500"
                   />
-                  <p className="text-xs text-muted-foreground">Email cannot be changed directly. Contact Admin.</p>
+                  <p className="text-xs text-muted-foreground">Email cannot be changed directly.</p>
                 </div>
                 <Button type="submit" disabled={savingProfile}>
                   {savingProfile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Profile"}
@@ -133,7 +135,7 @@ export default function HRSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* TAB 2: SECURITY (PASSWORD) */}
+        {/* TAB 2: SECURITY */}
         <TabsContent value="security" className="mt-6">
           <Card>
             <CardHeader>
@@ -179,5 +181,14 @@ export default function HRSettingsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// 2. Export Default Wrapper with Suspense
+export default function HRSettingsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>}>
+      <SettingsContent />
+    </Suspense>
   );
 }
