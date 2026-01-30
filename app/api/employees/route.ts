@@ -226,8 +226,8 @@ export async function POST(request: NextRequest) {
           panNumber: data.panNumber || null,
           uanNumber: data.uanNumber || null,
           bankName: data.bankName,
-          bankAccountNumber: data.accountNumber || null, // Ensure key matches schema/zod
-          bankIfscCode: data.ifscCode,
+          bankAccountNumber: data.bankAccountNumber || null, // Ensure key matches schema/zod
+          bankIfscCode: data.bankIfscCode,
           currentAddress: data.currentAddress,
           status: 'DRAFT',
         },

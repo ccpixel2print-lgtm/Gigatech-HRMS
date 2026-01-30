@@ -172,46 +172,48 @@ export default function EmployeesPage() {
 
                 {/* 4. ACTIONS (Horizontal) */}
                 <TableCell className="text-right">
-                    <div className="flex justify-end items-center gap-2">
-                      
-                      {/* Publish Button (Only if Draft) */}
-                      {employee.status === "DRAFT" ? (
-                        <>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            className="h-8 border-green-200 text-green-700 hover:bg-green-50"
-                            onClick={() => handlePublish(employee.id)}
-                            disabled={publishingId === employee.id}
-                          >
-                            {publishingId === employee.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <>
-                                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                                Publish
-                              </>
-                            )}
-                          </Button>
+                  <div className="flex justify-end items-center gap-2">
+                    
+                    {/* 1. PUBLISH (Draft Only) */}
+                    {employee.status === "DRAFT" && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-8 border-green-200 text-green-700 hover:bg-green-50"
+                        onClick={() => handlePublish(employee.id)}
+                        disabled={publishingId === employee.id}
+                        title="Publish Employee"
+                      >
+                        {publishingId === employee.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                            Publish
+                          </>
+                        )}
+                      </Button>
+                    )}
 
-                          {/* Edit Button (Only if Draft) */}
-                          <Link href={`/hr/employees/${employee.id}/edit`}>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500 hover:text-blue-600">
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                        </>
-                      ) : (
-                        /* View Button (Only if Published) - Reuses Edit Page but in Read-Only mode */
-                        <Link href={`/hr/employees/${employee.id}/edit?view=true`}>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500 hover:text-blue-600" title="View Details">
-                            <Eye className="h-4 w-4" /> {/* Import Eye from lucide-react */}
-                          </Button>
-                        </Link>
-                      )}
+                    {/* 2. VIEW (Published Only - Optional safe view) */}
+                    {employee.status === "PUBLISHED" && (
+                      <Link href={`/hr/employees/${employee.id}/edit?view=true`}>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500 hover:text-blue-600" title="View Details">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    )}
 
-                    </div>
-                  </TableCell>
+                    {/* 3. EDIT (Always Visible) */}
+                    <Link href={`/hr/employees/${employee.id}/edit`}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500 hover:text-blue-600" title="Edit">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </Link>
+
+                  </div>
+                </TableCell>
+
 
               </TableRow>
             ))}

@@ -1,4 +1,14 @@
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import { ToWords } from 'to-words';
+
+const toWords = new ToWords({
+  localeCode: 'en-IN',
+  converterOptions: {
+    currency: true,
+    ignoreDecimal: false,
+    ignoreZeroCurrency: false,
+  }
+});
 
 const styles = StyleSheet.create({
   page: { padding: 30, fontFamily: 'Helvetica', fontSize: 10 },
@@ -106,7 +116,7 @@ export const PayslipDocument = ({ data }: { data: any }) => {
 
         <View style={{ marginTop: 10, padding: 10, backgroundColor: '#f0f0f0', borderWidth: 1 }}>
            <Text style={{ fontSize: 12, fontWeight: 'bold' }}>NET PAY: Rs. {net.toFixed(2)}</Text>
-           <Text style={{ marginTop: 5 }}>({numberToWords(net)} Only)</Text>
+           <Text style={{ marginTop: 5 }}>{toWords.convert(net)}</Text>
         </View>
 
         <Text style={styles.footer}>This is a computer-generated document. No signature required.</Text>

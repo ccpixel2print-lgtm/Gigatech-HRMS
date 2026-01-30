@@ -29,8 +29,8 @@ export const employeeSchema = z.object({
   
   // Bank
   bankName: z.string().optional(),
-  accountNumber: z.string().optional(),
-  ifscCode: z.string().optional(),
+  bankAccountNumber: z.string().optional(),
+  bankIfscCode: z.string().optional(),
   
   // Statutory
   panNumber: z.string().optional(),
