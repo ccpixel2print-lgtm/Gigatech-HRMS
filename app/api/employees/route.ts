@@ -220,6 +220,7 @@ export async function POST(request: NextRequest) {
           dateOfBirth: data.dateOfBirth || new Date('1900-01-01'),
           gender: data.gender || 'MALE', 
           dateOfJoining: data.dateOfJoining,
+          companyId: data.companyId || null,
           employmentType: data.employmentType || 'FULL_TIME', 
           designation: data.designation || 'Employee',
           department: data.department || 'General',

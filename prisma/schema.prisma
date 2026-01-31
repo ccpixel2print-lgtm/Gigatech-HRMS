@@ -127,6 +127,9 @@ model Employee {
   compOffRecords        CompOffRecord[]
   payrollRecords        PayrollRecord[]
   
+  companyId     Int?
+  company       Company? @relation(fields: [companyId], references: [id])
+
   @@index([employeeCode])
   @@index([userId])
   @@index([reportingManagerId])
@@ -566,4 +569,22 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// 1. New Company Model
+model Company {
+  id            Int      @id @default(autoincrement())
+  name          String
+  address       String   @db.Text
+  
+  // Hybrid Logo: Can be "/logo.png" (Local) or "https://..." (Remote)
+  logoUrl       String?  
+  
+  gstIn         String?
+  panNumber     String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employees     Employee[]
 }

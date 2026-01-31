@@ -35,6 +35,7 @@ export const employeeSchema = z.object({
   // Statutory
   panNumber: z.string().optional(),
   uanNumber: z.string().optional(),
+  companyId: z.coerce.number().optional()
 });
 
 export type EmployeeFormValues = z.infer<typeof employeeSchema>;

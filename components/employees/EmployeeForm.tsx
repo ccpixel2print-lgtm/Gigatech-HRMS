@@ -9,7 +9,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
 
 interface EmployeeFormProps {
   initialData?: any;
@@ -19,6 +20,20 @@ interface EmployeeFormProps {
 export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  // Company List State
+  const [companies, setCompanies] = useState<any[]>([]);
+
+  // Fetch Companies on Mount
+  useEffect(() => {
+    // Only fetch if we need to edit/create (skip if just viewing? actually better to always fetch to show name)
+    fetch("/api/companies")
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("Companies Loaded:", data);
+        if (Array.isArray(data)) setCompanies(data);
+      })
+      .catch((err) => console.error("Failed to load companies", err));
+  }, []);
 
   // LOGIC: Determine Lock Levels
   const isPublished = initialData?.status === "PUBLISHED";
@@ -64,6 +79,8 @@ export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProp
     esi: Number(initialData?.salary?.esi || initialData?.esi || 0),
     specialAllowance: Number(initialData?.salary?.specialAllowance || initialData?.specialAllowance || 0),
     professionalTax: Number(initialData?.salary?.professionalTax || initialData?.professionalTax || 0),
+    companyId: (initialData?.companyId ? Number(initialData.companyId) : 1) as any,
+  
   };
 
   const form = useForm<EmployeeFormValues>({
@@ -214,6 +231,23 @@ export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProp
                         <option value="CONTRACT">Contract</option>
                         <option value="INTERN">Intern</option>
                       </select>
+                  </FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control as any} name="companyId" render={({ field }) => (
+                  <FormItem><FormLabel>Company Entity</FormLabel><FormControl>
+                    <select 
+                      {...field} 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      // Handle string/number conversion safely
+                      value={field.value || ""} 
+                      onChange={e => field.onChange(Number(e.target.value))}
+                      disabled={isSoftLocked}
+                    >
+                      <option value="">Select Company</option>
+                      {companies.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
                   </FormControl><FormMessage /></FormItem>
                 )} />
               </CardContent>

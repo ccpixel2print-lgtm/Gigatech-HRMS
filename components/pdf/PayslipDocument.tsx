@@ -54,16 +54,26 @@ export const PayslipDocument = ({ data }: { data: any }) => {
         
         {/* Header */}
         <View style={styles.header}>
-          {/* Logo */}
+          {/* Logo: Use company logo if available, else default */}
           <Image 
-            src="/Gigatech-logo.png" 
-            style={{ width: 60, height: 60, marginRight: 15 }} 
+            src={data.employee?.company?.logoUrl || "/Gigatech-logo.png"} 
+            style={{ width: 60, height: 60, marginRight: 15 }}
           />
-          
           <View>
-            <Text style={styles.companyName}>Gigatech Global Services Pvt Ltd</Text>
-            <Text>Plot No 4/2, Sector 1, RAM SVR,Huda Techno Enclave, Hi-Tech City,</Text>
-            <Text>Madhapur, Hyderabad, Telangana - 500 081</Text>
+            {/* Company Name */}
+            <Text style={styles.companyName}>
+              {data.employee?.company?.name || "Gigatech Global Services Pvt Ltd"}
+            </Text>
+            
+            {/* Address */}
+            <Text>
+              {data.employee?.company?.address || "Sector 1, RAM SVR,Huda Techno Enclave, Hi-Tech City, Madhapur, Hyd - 500 081"}
+            </Text>
+            
+            {/* GST (Optional) */}
+            {data.employee?.company?.gstIn && (
+              <Text>GSTIN: {data.employee.company.gstIn}</Text>
+            )}
           </View>
         </View>
 

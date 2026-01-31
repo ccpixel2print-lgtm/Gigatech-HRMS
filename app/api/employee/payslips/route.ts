@@ -31,7 +31,11 @@ export async function GET() {
       },
       // ADD THIS INCLUDE BLOCK
       include: {
-        employee: true 
+        employee: {
+          include: {
+            company: true // <--- FETCH COMPANY DETAILS
+          }
+        }
       },
       orderBy: [
         { year: 'desc' },
