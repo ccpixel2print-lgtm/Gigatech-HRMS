@@ -21,7 +21,7 @@ import {
   Loader2, 
   User, 
   Briefcase,
-  Mail, Eye
+  Mail, Eye, TrendingUp 
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
@@ -200,6 +200,15 @@ export default function EmployeesPage() {
                       <Link href={`/hr/employees/${employee.id}/edit?view=true`}>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500 hover:text-blue-600" title="View Details">
                           <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    )}
+                    
+                    {/* INCREMENT BUTTON (Only if Active) */}
+                    {employee.status === "PUBLISHED" && (
+                      <Link href={`/hr/employees/${employee.id}/increment`}>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500 hover:text-green-600" title="Process Increment">
+                          <TrendingUp className="h-4 w-4" />
                         </Button>
                       </Link>
                     )}
