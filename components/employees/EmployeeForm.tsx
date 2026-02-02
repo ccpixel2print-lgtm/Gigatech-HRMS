@@ -37,14 +37,15 @@ export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProp
 
   // LOGIC: Determine Lock Levels
   const isPublished = initialData?.status === "PUBLISHED";
+  const isResigned = ["RESIGNED", "TERMINATED", "ABSCONDING"].includes(initialData?.status);
 
   // 1. HARD LOCK: Locked if (View Mode) OR (Published)
   // Applied to: Name, Email, DOJ, Salary Tab
-  const isHardLocked = readOnly || isPublished;
+  const isHardLocked = readOnly || isPublished || isResigned;
 
   // 2. SOFT LOCK: Locked ONLY if (View Mode)
   // Applied to: Phone, Address, Bank, etc. (Editable even if Published)
-  const isSoftLocked = readOnly;
+  const isSoftLocked = readOnly || isResigned;
 
   // Prepare Default Values
   const defaultValues: Partial<EmployeeFormValues> = {

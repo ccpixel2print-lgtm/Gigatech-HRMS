@@ -24,64 +24,130 @@ export async function POST(
     }
 
     // 2. Prepare Credentials
-    // Generate an email if personalEmail is missing
     const baseName = `${employee.firstName}.${employee.lastName}`.toLowerCase().replace(/\s/g, '');
     const emailToUse = employee.personalEmail || `${baseName}@gigatech.com`;
-    
     const defaultPassword = "1234";
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
-    // 3. Create User & Update Employee
+    // 3. Transaction
     await prisma.$transaction(async (tx) => {
       
-      // Check if user already exists (by email)
+      // --- A. USER CREATION ---
       const existingUser = await tx.user.findUnique({ where: { email: emailToUse } });
-      
       let newUserId: number;
 
       if (existingUser) {
-        // If user exists, just link them
         newUserId = existingUser.id;
-        // Optional: Ensure they are active?
       } else {
-        // Create new User
         const newUser = await tx.user.create({
           data: {
             email: emailToUse,
-            passwordHash: hashedPassword, // Matches your Schema
-            fullName: `${employee.firstName} ${employee.lastName}`, // Matches your Schema
+            passwordHash: hashedPassword,
+            fullName: `${employee.firstName} ${employee.lastName}`,
             isActive: true,
-            // failedLoginAttempts defaults to 0
-            // lockedUntil defaults to null
           }
         });
         newUserId = newUser.id;
 
-        // Assign EMPLOYEE Role
         const employeeRole = await tx.role.findUnique({ where: { name: "EMPLOYEE" } });
         if (employeeRole) {
             await tx.userRole.create({
-                data: {
-                    userId: newUserId,
-                    roleId: employeeRole.id
-                }
+                data: { userId: newUserId, roleId: employeeRole.id }
             });
         }
       }
 
-      // Update Employee Status & Link User
+      // --- B. LEAVE BALANCE GENERATION (DYNAMIC PRO-RATA) ---
+      let templateId = employee.leaveTemplateId;
+
+      // 1. If no template assigned, find default
+      if (!templateId) {
+        const defaultTemplate = await tx.leaveTemplate.findFirst({
+            where: { name: "Standard Policy 2026" } 
+        });
+        if (defaultTemplate) {
+            templateId = defaultTemplate.id;
+        }
+      }
+
+      // 2. If we have a template, generate balances
+      if (templateId) {
+        const leaveTypes = await tx.leaveType.findMany({ where: { leaveTemplateId: templateId } });
+        const currentYear = new Date().getFullYear();
+        
+        // Calculate Pro-Rata Factor
+        const doj = new Date(employee.dateOfJoining);
+        let startMonth = 0; // Jan = 0
+        
+        // Only apply pro-rata if joined THIS year
+        if (doj.getFullYear() === currentYear) {
+            startMonth = doj.getMonth();
+            if (doj.getDate() > 15) startMonth += 1; // Join late in month -> skip month
+        }
+        
+        const remainingMonths = Math.max(0, 12 - startMonth);
+
+        for (const type of leaveTypes) {
+            // Check if balance exists
+            const exists = await tx.employeeLeaveBalance.findUnique({
+                where: {
+                    employeeId_leaveTypeId_year: {
+                        employeeId: employeeId,
+                        leaveTypeId: type.id,
+                        year: currentYear
+                    }
+                }
+            });
+
+            if (!exists) {
+                const annualQuota = Number(type.annualQuota);
+                let credit = 0;
+
+                // --- SMART LOGIC ---
+                if (type.code === 'EL') {
+                    // EL starts at 0 (Accrues monthly)
+                    credit = 0;
+                } else if (type.code === 'LOP' || type.code === 'CO') {
+                    // Utility types start at 0
+                    credit = annualQuota;
+                } else {
+                    // CL / SL: Pro-Rata Calculation
+                    // Formula: (Quota / 12) * Remaining Months
+                    credit = (annualQuota / 12) * remainingMonths;
+                    
+                    // Round to 2 decimals
+                    credit = Math.round(credit * 100) / 100;
+                }
+
+                await tx.employeeLeaveBalance.create({
+                    data: {
+                        employeeId: employeeId,
+                        leaveTypeId: type.id,
+                        year: currentYear,
+                        opening: 0,
+                        credited: credit,
+                        used: 0,
+                        closing: credit
+                    }
+                });
+            }
+        }
+      }
+
+      // --- C. UPDATE EMPLOYEE STATUS ---
       await tx.employee.update({
         where: { id: employeeId },
         data: { 
             status: "PUBLISHED",
-            userId: newUserId // Link the User ID
+            userId: newUserId,
+            leaveTemplateId: templateId 
         }
       });
     });
 
     return NextResponse.json({ 
         success: true, 
-        message: "Employee Published",
+        message: "Employee Published & Leaves Assigned",
         credentials: { email: emailToUse, password: defaultPassword } 
     });
 

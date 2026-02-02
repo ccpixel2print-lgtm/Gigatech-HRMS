@@ -21,15 +21,17 @@ import {
   Loader2, 
   User, 
   Briefcase,
-  Mail, Eye, TrendingUp 
+  Mail, Eye, TrendingUp, UserMinus
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { OffboardDialog } from "@/components/employees/OffboardDialog";
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [publishingId, setPublishingId] = useState<number | null>(null);
+  const [resigningId, setResigningId] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/employees")
@@ -40,6 +42,29 @@ export default function EmployeesPage() {
       })
       .catch((err) => console.error(err));
   }, []);
+
+  const handleResign = async (id: number) => {
+    const date = prompt("Enter Last Working Day (YYYY-MM-DD):");
+    if (!date) return;
+    
+    if(!confirm("Are you sure? This will deactivate their login.")) return;
+
+    try {
+      await fetch(`/api/employees/${id}/resign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            dateOfLeaving: date,
+            type: "RESIGNED",
+            reason: "Voluntary" 
+        })
+      });
+      alert("Employee Offboarded");
+      window.location.reload();
+    } catch (e) {
+      alert("Error");
+    }
+  };
 
   const handlePublish = async (id: number) => {
     if(!confirm("Publish this employee? This will create their login access.")) return;
@@ -160,12 +185,12 @@ export default function EmployeesPage() {
                 {/* 3. STATUS BADGE */}
                 <TableCell>
                   {employee.status === "DRAFT" ? (
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200">
-                      Draft
-                    </Badge>
+                    <Badge variant="secondary" className="...">Draft</Badge>
+                  ) : employee.status === "PUBLISHED" ? (
+                    <Badge className="bg-green-100 text-green-700 ...">Active</Badge>
                   ) : (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 shadow-none font-medium">
-                      Active
+                    <Badge variant="destructive">
+                      {employee.status} {/* Shows RESIGNED / TERMINATED */}
                     </Badge>
                   )}
                 </TableCell>
@@ -219,6 +244,14 @@ export default function EmployeesPage() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </Link>
+
+                    {/* Offboard Action */}
+                    {employee.status === "PUBLISHED" && (
+                      <OffboardDialog 
+                        employeeId={employee.id} 
+                        employeeName={`${employee.firstName} ${employee.lastName}`} 
+                      />
+                    )}
 
                   </div>
                 </TableCell>

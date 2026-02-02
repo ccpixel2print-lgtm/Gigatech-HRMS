@@ -22,6 +22,7 @@ interface PayrollRecord {
   basicSalary: string;
   grossSalary: string; // Changed from grossEarnings
   netSalary: string;   // Changed from netPay
+  elCredit: number;
   lopDays: string;
   otherAllowances: string; // Changed from otherAllowance
   otherDeductions: string;
@@ -108,6 +109,7 @@ export default function PayrollPage() {
         lopDays: toNum(record.lopDays),
         otherAllowances: toNum(record.otherAllowances),
         otherDeductions: toNum(record.otherDeductions),
+        elCredit: toNum(record.elCredit),
         status: action === "PUBLISH" ? "PROCESSED" : record.status, // Map PUBLISH -> PROCESSED
       };
 
@@ -179,6 +181,7 @@ export default function PayrollPage() {
                 <TableHead>Employee</TableHead>
                 <TableHead>LOP Days</TableHead>
                 <TableHead className="text-right">Net Pay</TableHead>
+                <TableHead className="text-center">EL Credit</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -214,7 +217,16 @@ export default function PayrollPage() {
                       <TableCell className="text-right font-bold text-blue-600">
                         ₹{toNum(record.netSalary).toFixed(2)}
                       </TableCell>
-                      
+                      <TableCell>
+                        <Input 
+                          type="number" 
+                          step="0.25"
+                          className="w-16 text-center bg-white" 
+                          value={record.elCredit} 
+                          disabled={isLocked}
+                          onChange={(e) => updateLocalField(record.id, "elCredit", e.target.value)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Badge variant={isLocked ? "default" : "secondary"}>{record.status}</Badge>
                       </TableCell>
