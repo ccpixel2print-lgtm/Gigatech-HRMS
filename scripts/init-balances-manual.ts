@@ -49,21 +49,34 @@ async function initBalances() {
       });
 
       if (!exists) {
-          const annualQuota = Number(type.annualQuota);
-          let credit = (annualQuota / 12) * remainingMonths;
-          credit = Math.round(credit * 100) / 100;
+        const annualQuota = Number(type.annualQuota);
+        let credit = 0;
 
-          await prismaClient.employeeLeaveBalance.create({
-              data: {
-                  employeeId: emp.id,
-                  leaveTypeId: type.id,
-                  year: currentYear,
-                  opening: 0,
-                  credited: credit,
-                  used: 0,
-                  closing: credit
-              }
-          });
+        // --- LOGIC FIX: Don't credit EL upfront ---
+        if (type.code === 'EL' || type.code === 'CO') {
+            credit = 0;
+        } else if (type.code === 'LOP') {
+            credit = annualQuota; // 365
+        } else {
+            // CL / SL: Pro-Rata
+            credit = (annualQuota / 12) * remainingMonths;
+            credit = Math.round(credit * 100) / 100;
+        }
+        // ------------------------------------------
+
+        await prismaClient.employeeLeaveBalance.create({
+            data: {
+                employeeId: emp.id,
+                leaveTypeId: type.id,
+                year: currentYear,
+                opening: 0,
+                credited: credit,
+                used: 0,
+                closing: credit
+            }
+            });
+            // ...
+
           createdCount++;
           console.log(`   + Credited ${type.code}: ${credit}`);
       } else {

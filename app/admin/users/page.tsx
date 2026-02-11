@@ -11,7 +11,7 @@ import {
   XCircle, 
   CheckCircle,
   ShieldAlert,
-  Loader2
+  Loader2, KeyRound 
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -225,6 +225,24 @@ export default function UserManagementPage() {
       alert('Failed to unlock user')
     }
   }
+  
+  const handleResetPassword = async (userId: number, newPassword: string) => {
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, newPassword })
+      });
+      
+      if(res.ok) {
+        alert("Password reset successfully!");
+      } else {
+        alert("Failed to reset");
+      }
+    } catch(e) {
+      alert("Error");
+    }
+  };
 
   // Deactivate user
   const handleDeactivateUser = async (userId: number) => {
@@ -370,6 +388,21 @@ export default function UserManagementPage() {
                             <XCircle className="h-4 w-4" />
                           </Button>
                         )}
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-8 w-8 p-0 text-slate-500 hover:text-blue-600"
+                      title="Reset Password"
+                      onClick={() => {
+                        const newPass = prompt(`Enter new password for ${user.fullName}:`, "1234");
+                        if (newPass) {
+                          handleResetPassword(user.id, newPass);
+                        }
+                      }}
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </Button>
+
                       </div>
                     </TableCell>
                   </TableRow>
