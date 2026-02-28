@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import Link from 'next/link'
-import { Users, LayoutDashboard, Settings, DollarSign, CalendarCheck  } from 'lucide-react'
+import { Users, LayoutDashboard, Settings, DollarSign, CalendarCheck, Activity  } from 'lucide-react'
 import { LogoutButton } from "@/components/LogoutButton";
 import { HeaderProfile } from "@/components/HeaderProfile"; // New Component
 import { HeaderUserInfo } from "@/components/HeaderUserInfo";
@@ -49,6 +49,14 @@ export default function HRLayout({ children }: { children: ReactNode }) {
           >
             <DollarSign className="h-5 w-5" />
             <span>Payroll</span>
+          </Link>
+
+          <Link
+            href="/hr/productivity"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            <Activity className="h-5 w-5" /> {/* Import Activity from lucide-react */}
+            <span>Productivity</span>
           </Link>
 
           <Link

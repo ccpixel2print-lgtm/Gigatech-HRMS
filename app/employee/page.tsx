@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Calendar } from "lucide-react"; // Added Calendar icon
 import { Badge } from "@/components/ui/badge";
+import { TaskWidget } from "@/components/attendance/TaskWidget";
 
 export default function EmployeeDashboard() {
   const [employee, setEmployee] = useState<any>(null);
@@ -75,7 +76,7 @@ export default function EmployeeDashboard() {
             : "Employee Portal"}
         </p>
       </div>
-
+      <TaskWidget />
       {/* Content Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         

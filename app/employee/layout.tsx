@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import Link from 'next/link'
-import { LayoutDashboard, CalendarDays, Receipt, User, Settings } from 'lucide-react' // Updated Icons
+import { LayoutDashboard, CalendarDays, Receipt, User, Settings, Clock } from 'lucide-react' // Updated Icons
 import { LogoutButton } from "@/components/LogoutButton";
 import { HeaderProfile } from "@/components/HeaderProfile"; // Reuse this!
 import { HeaderUserInfo } from "@/components/HeaderUserInfo";
@@ -41,6 +41,14 @@ export default function EmployeeLayout({ children }: { children: ReactNode }) {
           >
             <Receipt className="h-5 w-5" />
             <span>My Payslips</span>
+          </Link>
+          
+          <Link
+            href="/employee/tasks"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            <Clock className="h-5 w-5" />
+            <span>Task History</span>
           </Link>
 
           <Link
