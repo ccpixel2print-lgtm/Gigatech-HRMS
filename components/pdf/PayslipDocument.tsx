@@ -102,6 +102,7 @@ export const PayslipDocument = ({ data }: { data: any }) => {
                <Row label="Basic Salary" value={data.basicSalary} />
                <Row label="HRA" value={data.hra || "0"} />
                <Row label="DA" value={data.da || "0"} />
+               <Row label="Transport Allowance" value={data.ta || "0"} />
                <Row label="Special Allowance" value={data.specialAllowance || "0"} />
                <Row label="Bonus / Arrears" value={data.otherAllowances} />
             </View>
