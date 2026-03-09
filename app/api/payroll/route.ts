@@ -12,7 +12,7 @@ function numberToDecimal(value: number): Prisma.Decimal {
   return new Prisma.Decimal(value);
 }
 
-// GET (Fetch) - Unchanged
+// GET (Fetch)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -60,12 +60,23 @@ export async function POST(request: NextRequest) {
 
     if (!month || !year) return NextResponse.json({ error: 'Month/Year required' }, { status: 400 });
 
+    // 1. Calculate Payroll Period
+    const payrollStartDate = new Date(year, month - 1, 1);
     const payrollEndDate = new Date(year, month, 0); 
 
+    // 2. Fetch Eligible Employees (Active + Resigned THIS MONTH)
     const employees = await prisma.employee.findMany({
-      where: { 
-        status: { in: ['PUBLISHED'] },
-        dateOfJoining: { lte: payrollEndDate }
+      where: {
+        OR: [
+          { 
+            status: "PUBLISHED", 
+            dateOfJoining: { lte: payrollEndDate } 
+          },
+          { 
+            status: { in: ["RESIGNED", "TERMINATED", "ABSCONDING"] },
+            dateOfLeaving: { gte: payrollStartDate } // Left during or after this month
+          }
+        ]
       },
       include: { salary: true }
     });
@@ -82,6 +93,23 @@ export async function POST(request: NextRequest) {
 
       if (!employee.salary) continue; 
 
+      // 3. Calculate Working Days (F&F Logic)
+      let workingDays = 30; // Default
+      let lopDays = 0;
+
+      // If Resigned THIS month, limit working days
+      if (employee.dateOfLeaving) {
+          const dol = new Date(employee.dateOfLeaving);
+          if (dol.getMonth() === month - 1 && dol.getFullYear() === year) {
+              // They left this month. Days = Day of Month (e.g. 15th = 15 days)
+              workingDays = dol.getDate();
+              
+              // Auto-LOP for the unworked part of the month
+              // Assumption: 30 day standard month
+              lopDays = Math.max(0, 30 - workingDays);
+          }
+      }
+
       const s = employee.salary;
 
       // Values
@@ -96,11 +124,20 @@ export async function POST(request: NextRequest) {
       const pt = decimalToNumber(s.professionalTax);
       const tds = decimalToNumber(s.incomeTax);
 
+      // Stats
       const grossSalary = basic + hra + da + ta + special;
       const totalDeductions = pf + esi + pt + tds; 
-      const netSalary = grossSalary - totalDeductions;
+      const netSalary = grossSalary - totalDeductions; // This is FULL month Net
 
-      // 5. CALCULATE EL CREDIT (Proposal only)
+      // NOTE: Our PATCH logic later recalculates Net based on LOP.
+      // So saving 'netSalary' as FULL here is fine, because 'lopDays' is saved.
+      // But for better initial data, let's pre-calculate the deduction.
+      
+      const dailyRate = grossSalary / 30;
+      const lopDeduction = dailyRate * lopDays;
+      const finalNet = netSalary - lopDeduction;
+
+      // 5. CALCULATE EL CREDIT
       let calculatedEl = 0;
       if (employee.leaveTemplateId) {
         const elType = await prisma.leaveType.findFirst({
@@ -120,12 +157,11 @@ export async function POST(request: NextRequest) {
           payrollDate: new Date(),
           
           totalWorkingDays: numberToDecimal(30),
-          presentDays: numberToDecimal(30),
+          presentDays: numberToDecimal(workingDays),
           paidLeaveDays: numberToDecimal(0),
           unpaidLeaveDays: numberToDecimal(0),
-          lopDays: numberToDecimal(0),
+          lopDays: numberToDecimal(lopDays), // Auto-filled for resigned emp
           
-          // New Field: EL Credit Proposal
           elCredit: numberToDecimal(calculatedEl),
 
           basicSalary: numberToDecimal(basic),
@@ -142,11 +178,11 @@ export async function POST(request: NextRequest) {
           esi: numberToDecimal(esi),
           professionalTax: numberToDecimal(pt),
           incomeTax: numberToDecimal(tds), 
-          lopDeduction: numberToDecimal(0),
+          lopDeduction: numberToDecimal(lopDeduction), // Saved
           otherDeductions: numberToDecimal(0),
-          totalDeductions: numberToDecimal(totalDeductions),
+          totalDeductions: numberToDecimal(totalDeductions + lopDeduction),
           
-          netSalary: numberToDecimal(netSalary),
+          netSalary: numberToDecimal(finalNet),
           status: 'DRAFT'
         } as any
       });
@@ -168,7 +204,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, lopDays, otherAllowances, otherDeductions, status, elCredit } = body; // <--- Accept elCredit
+    const { id, lopDays, otherAllowances, otherDeductions, status, elCredit } = body; 
 
     const record = await prisma.payrollRecord.findUnique({
       where: { id },
@@ -201,7 +237,7 @@ export async function PATCH(request: NextRequest) {
     const totalDays = decimalToNumber(record.totalWorkingDays) || 30;
     const newPresentDays = totalDays - newLopDays; 
 
-    // CHECK FOR PUBLISH EVENT (The Magic Logic)
+    // CHECK FOR PUBLISH EVENT
     if (record.status !== "PROCESSED" && newStatus === "PROCESSED") {
         if (newElCredit > 0 && record.employee.leaveTemplateId) {
             const elType = await prisma.leaveType.findFirst({
@@ -209,7 +245,6 @@ export async function PATCH(request: NextRequest) {
             });
             
             if (elType) {
-                // Find/Create/Update Balance
                 const balanceKey = {
                     employeeId: record.employeeId,
                     leaveTypeId: elType.id,
@@ -240,7 +275,6 @@ export async function PATCH(request: NextRequest) {
                     });
                 }
 
-                // Audit Log
                 await prisma.leaveTransaction.create({
                     data: {
                         employeeId: record.employeeId,
@@ -262,7 +296,7 @@ export async function PATCH(request: NextRequest) {
         lopDays: numberToDecimal(newLopDays),
         otherAllowances: numberToDecimal(newBonus),
         otherDeductions: numberToDecimal(newOtherDed),
-        elCredit: numberToDecimal(newElCredit), // <--- SAVE THE CREDIT
+        elCredit: numberToDecimal(newElCredit),
         
         grossSalary: numberToDecimal(finalGross),
         lopDeduction: numberToDecimal(lopAmount),

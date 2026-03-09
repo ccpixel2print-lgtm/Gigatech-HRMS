@@ -214,6 +214,18 @@ export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProp
                   </FormControl><FormMessage /></FormItem>
                 )} />
 
+                {/* Exit Date (Only if Exists) */}
+                {initialData?.dateOfLeaving && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-red-600">Date of Exit</label>
+                    <Input 
+                      value={new Date(initialData.dateOfLeaving).toLocaleDateString()} 
+                      disabled 
+                      className="border-red-200 bg-red-50 text-red-900"
+                    />
+                  </div>
+                )}
+
                 {/* --- OPERATIONAL FIELDS (Soft Lock) --- */}
                 <FormField control={form.control as any} name="designation" render={({ field }) => (
                   <FormItem><FormLabel>Designation</FormLabel><FormControl>
