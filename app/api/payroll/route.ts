@@ -60,11 +60,10 @@ export async function POST(request: NextRequest) {
 
     if (!month || !year) return NextResponse.json({ error: 'Month/Year required' }, { status: 400 });
 
-    // 1. Calculate Payroll Period
     const payrollStartDate = new Date(year, month - 1, 1);
     const payrollEndDate = new Date(year, month, 0); 
 
-    // 2. Fetch Eligible Employees (Active + Resigned THIS MONTH)
+    // Fetch Eligible Employees (Active or Left this month)
     const employees = await prisma.employee.findMany({
       where: {
         OR: [
@@ -74,7 +73,7 @@ export async function POST(request: NextRequest) {
           },
           { 
             status: { in: ["RESIGNED", "TERMINATED", "ABSCONDING"] },
-            dateOfLeaving: { gte: payrollStartDate } // Left during or after this month
+            dateOfLeaving: { gte: payrollStartDate }
           }
         ]
       },
@@ -93,22 +92,37 @@ export async function POST(request: NextRequest) {
 
       if (!employee.salary) continue; 
 
-      // 3. Calculate Working Days (F&F Logic)
-      let workingDays = 30; // Default
-      let lopDays = 0;
+      // --- CALCULATE WORKING DAYS (PRO-RATA) ---
+      const daysInMonth = new Date(year, month, 0).getDate();
+      let startDay = 1;
+      let endDay = daysInMonth;
 
-      // If Resigned THIS month, limit working days
+      // A. Check New Joiner
+      const doj = new Date(employee.dateOfJoining);
+      if (doj.getMonth() === month - 1 && doj.getFullYear() === year) {
+          startDay = doj.getDate();
+      }
+
+      // B. Check Resignation
       if (employee.dateOfLeaving) {
           const dol = new Date(employee.dateOfLeaving);
           if (dol.getMonth() === month - 1 && dol.getFullYear() === year) {
-              // They left this month. Days = Day of Month (e.g. 15th = 15 days)
-              workingDays = dol.getDate();
-              
-              // Auto-LOP for the unworked part of the month
-              // Assumption: 30 day standard month
-              lopDays = Math.max(0, 30 - workingDays);
+              endDay = dol.getDate();
           }
       }
+
+      // C. Calculate Payable Days & LOP
+      let payableDays = (endDay - startDay) + 1;
+      
+      // Standardize to 30 days if full month
+      if (startDay === 1 && endDay === daysInMonth) {
+          payableDays = 30;
+      } else {
+          payableDays = Math.min(payableDays, 30);
+      }
+
+      const lopDays = Math.max(0, 30 - payableDays);
+      // ------------------------------------------
 
       const s = employee.salary;
 
@@ -127,24 +141,20 @@ export async function POST(request: NextRequest) {
       // Stats
       const grossSalary = basic + hra + da + ta + special;
       const totalDeductions = pf + esi + pt + tds; 
-      const netSalary = grossSalary - totalDeductions; // This is FULL month Net
-
-      // NOTE: Our PATCH logic later recalculates Net based on LOP.
-      // So saving 'netSalary' as FULL here is fine, because 'lopDays' is saved.
-      // But for better initial data, let's pre-calculate the deduction.
       
+      // Pre-calculate LOP Deduction for Initial Record
       const dailyRate = grossSalary / 30;
-      const lopDeduction = dailyRate * lopDays;
-      const finalNet = netSalary - lopDeduction;
+      const lopAmount = dailyRate * lopDays;
+      const finalNet = grossSalary - totalDeductions - lopAmount;
 
-      // 5. CALCULATE EL CREDIT
+      // EL Proposal
       let calculatedEl = 0;
       if (employee.leaveTemplateId) {
         const elType = await prisma.leaveType.findFirst({
             where: { leaveTemplateId: employee.leaveTemplateId, code: 'EL' }
         });
         if (elType) {
-            calculatedEl = Number(elType.annualQuota) / 12; // e.g. 1.25
+            calculatedEl = Number(elType.annualQuota) / 12; // 1.25
         }
       }
 
@@ -157,10 +167,10 @@ export async function POST(request: NextRequest) {
           payrollDate: new Date(),
           
           totalWorkingDays: numberToDecimal(30),
-          presentDays: numberToDecimal(workingDays),
+          presentDays: numberToDecimal(payableDays), // Correct
           paidLeaveDays: numberToDecimal(0),
           unpaidLeaveDays: numberToDecimal(0),
-          lopDays: numberToDecimal(lopDays), // Auto-filled for resigned emp
+          lopDays: numberToDecimal(lopDays), // Saved here
           
           elCredit: numberToDecimal(calculatedEl),
 
@@ -178,9 +188,10 @@ export async function POST(request: NextRequest) {
           esi: numberToDecimal(esi),
           professionalTax: numberToDecimal(pt),
           incomeTax: numberToDecimal(tds), 
-          lopDeduction: numberToDecimal(lopDeduction), // Saved
+          
+          lopDeduction: numberToDecimal(lopAmount), // Saved
           otherDeductions: numberToDecimal(0),
-          totalDeductions: numberToDecimal(totalDeductions + lopDeduction),
+          totalDeductions: numberToDecimal(totalDeductions + lopAmount),
           
           netSalary: numberToDecimal(finalNet),
           status: 'DRAFT'
