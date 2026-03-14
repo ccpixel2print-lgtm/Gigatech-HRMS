@@ -29,41 +29,25 @@ export async function POST(req: Request) {
     const { leaveTypeId, fromDate, toDate, reason } = body; 
     // Note: We ignore 'days' from body because we calculate it trustworthily here.
 
+        // ---------------------------------------------------------
+    // 3.5 FLEXIBLE CALCULATION (Calendar Days)
     // ---------------------------------------------------------
-    // 3.5 SMART CALCULATION (Exclude Weekends & Holidays)
-    // ---------------------------------------------------------
+    // We removed Weekend/Holiday validation to support mixed shifts.
+    // Now, every day selected counts as 1 day. 
+    // HR must reject if an employee applies for their rest day.
+    
     const start = new Date(fromDate);
     const end = new Date(toDate);
 
-    // Fetch Holidays in range
-    const holidays = await prisma.holiday.findMany({
-      where: {
-        date: { gte: start, lte: end }
-      }
-    });
+    // Calculate time difference in milliseconds
+    const diffTime = Math.abs(end.getTime() - start.getTime());
     
-    const holidaySet = new Set(holidays.map(h => h.date.toISOString().split('T')[0]));
+    // Convert to days (1000ms * 60s * 60m * 24h) + 1 for inclusive start date
+    const calculatedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-    let calculatedDays = 0;
-    let loopDate = new Date(start);
-
-    while (loopDate <= end) {
-      const dayOfWeek = loopDate.getDay(); // 0=Sun, 6=Sat
-      const dateString = loopDate.toISOString().split('T')[0];
-
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      const isHoliday = holidaySet.has(dateString);
-
-      if (!isWeekend && !isHoliday) {
-        calculatedDays++;
-      }
-      
-      // Next day
-      loopDate.setDate(loopDate.getDate() + 1);
-    }
-
-    if (calculatedDays === 0) {
-        return NextResponse.json({ error: "Selected dates are all holidays or weekends." }, { status: 400 });
+    // Safety check
+    if (isNaN(calculatedDays) || calculatedDays <= 0) {
+        return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
     }
     // ---------------------------------------------------------
 
