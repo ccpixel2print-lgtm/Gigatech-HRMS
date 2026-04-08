@@ -3,33 +3,39 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Users, FileText, Calendar, Plus, Search } from "lucide-react";
+import { Users, FileText, Calendar, Plus, Search, DollarSign, TrendingUp } from "lucide-react";
 
 export default function HRDashboard() {
   const [stats, setStats] = useState({ total: 0, draft: 0, newJoiners: 0 });
+  const [salaryStats, setSalaryStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch real data on mount
-    fetch("/api/hr/stats")
-      .then((res) => res.json())
-      .then((data) => {
-        setStats(data);
-        setLoading(false);
+    Promise.all([
+      fetch("/api/hr/stats").then((res) => res.json()),
+      fetch("/api/hr/salary-stats").then((res) => res.json()),
+    ])
+      .then(([statsData, salaryData]) => {
+        setStats(statsData);
+        setSalaryStats(salaryData);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
   }, []);
+
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(val);
+
+  const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   return (
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">HR Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Welcome to the HR Management Portal
-        </p>
+        <p className="text-muted-foreground mt-2">Welcome to the HR Management Portal</p>
       </div>
 
-      {/* STATS GRID */}
+      {/* ROW 1: STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -65,6 +71,65 @@ export default function HRDashboard() {
         </Card>
       </div>
 
+      {/* ROW 2: SALARY CARDS */}
+      {salaryStats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* CARD 1: Monthly Salary */}
+          <Card className="border-blue-200 bg-blue-50/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Salaries – {monthNames[salaryStats.monthly.month]} {salaryStats.monthly.year}
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-700">
+                {formatCurrency(salaryStats.monthly.grandTotal)}
+              </div>
+              <div className="mt-3 space-y-1">
+                {salaryStats.monthly.byEntity.length > 0 ? (
+                  salaryStats.monthly.byEntity.map((e: any) => (
+                    <div key={e.name} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{e.name}</span>
+                      <span className="font-medium">{formatCurrency(e.total)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">No payroll processed this month yet.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* CARD 2: Financial Year Salary */}
+          <Card className="border-emerald-200 bg-emerald-50/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Salaries – {salaryStats.financialYear.label}
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-700">
+                {formatCurrency(salaryStats.financialYear.grandTotal)}
+              </div>
+              <div className="mt-3 space-y-1">
+                {salaryStats.financialYear.byEntity.length > 0 ? (
+                  salaryStats.financialYear.byEntity.map((e: any) => (
+                    <div key={e.name} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{e.name}</span>
+                      <span className="font-medium">{formatCurrency(e.total)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">No payroll processed this FY yet.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* QUICK ACTIONS */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border p-6">
         <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
@@ -81,7 +146,7 @@ export default function HRDashboard() {
               <div className="text-sm text-muted-foreground">Create a new profile</div>
             </div>
           </Link>
-          
+
           <Link
             href="/hr/employees"
             className="flex items-center p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"

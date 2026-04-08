@@ -19,49 +19,56 @@ export async function POST(req: Request) {
     // 2. Get Employee ID
     const employee = await prisma.employee.findFirst({
       where: { userId },
-      select: { id: true } 
+      select: { id: true },
     });
-    
+
     if (!employee) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
     // 3. Parse Body
     const body = await req.json();
-    const { leaveTypeId, fromDate, toDate, reason } = body; 
-    // Note: We ignore 'days' from body because we calculate it trustworthily here.
+    const { leaveTypeId, fromDate, toDate, reason, isHalfDay, halfDaySession } = body;
 
-        // ---------------------------------------------------------
-    // 3.5 FLEXIBLE CALCULATION (Calendar Days)
-    // ---------------------------------------------------------
-    // We removed Weekend/Holiday validation to support mixed shifts.
-    // Now, every day selected counts as 1 day. 
-    // HR must reject if an employee applies for their rest day.
-    
     const start = new Date(fromDate);
     const end = new Date(toDate);
 
-    // Calculate time difference in milliseconds
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    
-    // Convert to days (1000ms * 60s * 60m * 24h) + 1 for inclusive start date
-    const calculatedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    // ---------------------------------------------------------
+    // 3.5 FLEXIBLE CALCULATION (Calendar Days)
+    // ---------------------------------------------------------
+    let calculatedDays: number;
 
-    // Safety check
+    if (isHalfDay) {
+      // Half-day: always 0.5, fromDate and toDate must be the same
+      if (start.toISOString().split("T")[0] !== end.toISOString().split("T")[0]) {
+        return NextResponse.json({ error: "Half-day leave must be for a single date." }, { status: 400 });
+      }
+      calculatedDays = 0.5;
+    } else {
+      // Full-day: count every calendar day (no weekend/holiday restriction)
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      calculatedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
+
     if (isNaN(calculatedDays) || calculatedDays <= 0) {
-        return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
     }
     // ---------------------------------------------------------
 
     // 4. Validate Balance (Using Calculated Days)
     const balanceRecord = await prisma.employeeLeaveBalance.findFirst({
-      where: { 
-        employeeId: employee.id, 
-        leaveTypeId, 
-        year: new Date().getFullYear()
-      }
+      where: {
+        employeeId: employee.id,
+        leaveTypeId,
+        year: new Date().getFullYear(),
+      },
     });
 
     if (!balanceRecord || Number(balanceRecord.closing) < calculatedDays) {
-       return NextResponse.json({ error: `Insufficient Balance. Required: ${calculatedDays}, Available: ${balanceRecord?.closing || 0}` }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: `Insufficient Balance. Required: ${calculatedDays}, Available: ${balanceRecord?.closing || 0}`,
+        },
+        { status: 400 }
+      );
     }
 
     // 4.5 Check for Overlapping Leaves
@@ -69,17 +76,17 @@ export async function POST(req: Request) {
       where: {
         employeeId: employee.id,
         status: { in: ["PENDING", "APPROVED", "L1_APPROVED", "L2_APPROVED"] },
-        AND: [
-          { fromDate: { lte: end } },
-          { toDate: { gte: start } }
-        ]
-      }
+        AND: [{ fromDate: { lte: end } }, { toDate: { gte: start } }],
+      },
     });
 
     if (overlapping) {
-      return NextResponse.json({ 
-        error: `Overlap detected with leave from ${new Date(overlapping.fromDate).toLocaleDateString()}` 
-      }, { status: 409 });
+      return NextResponse.json(
+        {
+          error: `Overlap detected with leave from ${new Date(overlapping.fromDate).toLocaleDateString()}`,
+        },
+        { status: 409 }
+      );
     }
 
     // 5. Create Application
@@ -89,14 +96,17 @@ export async function POST(req: Request) {
         leaveTypeId,
         fromDate: start,
         toDate: end,
-        totalDays: calculatedDays, // Use our smart count
-        reason,
-        status: "PENDING"
-      }
+        totalDays: calculatedDays,
+        isHalfDayStart: isHalfDay ? true : false,
+        isHalfDayEnd: false,
+        reason: isHalfDay
+          ? `[${halfDaySession || "FIRST_HALF"}] ${reason}`
+          : reason,
+        status: "PENDING",
+      },
     });
 
     return NextResponse.json({ success: true, application });
-
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Application Failed" }, { status: 500 });
