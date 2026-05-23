@@ -17,16 +17,28 @@ const toNum = (val: string | number | null | undefined) => {
 
 // Types matching your API response
 interface PayrollRecord {
-  id: number; // Changed to number to match your DB
+  id: number;
   employee: { firstName: string; lastName: string; employeeCode: string };
   basicSalary: string;
-  grossSalary: string; // Changed from grossEarnings
-  netSalary: string;   // Changed from netPay
+  hra: string;
+  da: string;
+  ta: string;
+  specialAllowance: string;
+  conveyanceAllowance: string;
+  medicalAllowance: string;
+  grossSalary: string;
+  netSalary: string;
   elCredit: number;
   lopDays: string;
-  otherAllowances: string; // Changed from otherAllowance
+  otherAllowances: string;
   otherDeductions: string;
   totalDeductions: string;
+  // Deduction breakup
+  providentFund: string;
+  esi: string;
+  professionalTax: string;
+  incomeTax: string;
+  lopDeduction: string;
   status: "DRAFT" | "PROCESSED" | "PAID";
 }
 
@@ -250,42 +262,68 @@ export default function PayrollPage() {
                     {/* DETAIL ROW */}
                     {isExpanded && (
                       <TableRow className="bg-blue-50/30 hover:bg-blue-50/30">
-                        <TableCell colSpan={6} className="p-4 pt-0">
+                        <TableCell colSpan={7} className="p-4 pt-0">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-md bg-white">
-                            
+
+                            {/* EARNINGS BREAKUP */}
                             <div className="space-y-1">
-                              <p className="text-xs font-medium text-muted-foreground">BREAKDOWN</p>
-                              <p className="text-sm">Basic: ₹{toNum(record.basicSalary).toFixed(2)}</p>
-                              <p className="text-sm">Gross: ₹{toNum(record.grossSalary).toFixed(2)}</p>
-                              <p className="text-sm text-red-500">Total Ded: ₹{toNum(record.totalDeductions).toFixed(2)}</p>
+                              <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Earnings</p>
+                              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Basic Salary</span><span>{toNum(record.basicSalary).toFixed(2)}</span></div>
+                              <div className="flex justify-between text-sm"><span className="text-muted-foreground">HRA</span><span>{toNum(record.hra).toFixed(2)}</span></div>
+                              {toNum(record.da) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">DA</span><span>{toNum(record.da).toFixed(2)}</span></div>}
+                              {toNum(record.ta) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">TA</span><span>{toNum(record.ta).toFixed(2)}</span></div>}
+                              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Special Allowance</span><span>{toNum(record.specialAllowance).toFixed(2)}</span></div>
+                              {toNum(record.conveyanceAllowance) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Conveyance</span><span>{toNum(record.conveyanceAllowance).toFixed(2)}</span></div>}
+                              {toNum(record.medicalAllowance) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Medical</span><span>{toNum(record.medicalAllowance).toFixed(2)}</span></div>}
+                              {toNum(record.otherAllowances) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Other Allowances</span><span className="text-green-600">+{toNum(record.otherAllowances).toFixed(2)}</span></div>}
+                              <div className="border-t pt-1 mt-1 flex justify-between text-sm font-bold"><span>Gross Salary</span><span className="text-green-700">{toNum(record.grossSalary).toFixed(2)}</span></div>
                             </div>
 
-                            <div className="space-y-2">
-                              <label className="text-xs font-medium text-green-600">BONUS / ALLOWANCE</label>
-                              <Input 
-                                type="number" 
-                                className="h-9" 
-                                value={record.otherAllowances} 
-                                disabled={isLocked}
-                                onChange={(e) => updateLocalField(record.id, "otherAllowances", e.target.value)}
-                              />
+                            {/* DEDUCTIONS BREAKUP */}
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-2">Deductions</p>
+                              {toNum(record.providentFund) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Provident Fund (PF)</span><span className="text-red-600">{toNum(record.providentFund).toFixed(2)}</span></div>}
+                              {toNum(record.esi) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">ESI</span><span className="text-red-600">{toNum(record.esi).toFixed(2)}</span></div>}
+                              {toNum(record.professionalTax) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Professional Tax (PT)</span><span className="text-red-600">{toNum(record.professionalTax).toFixed(2)}</span></div>}
+                              {toNum(record.incomeTax) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Income Tax (TDS)</span><span className="text-red-600">{toNum(record.incomeTax).toFixed(2)}</span></div>}
+                              {toNum(record.lopDeduction) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">LOP Deduction ({toNum(record.lopDays)} days)</span><span className="text-red-600">{toNum(record.lopDeduction).toFixed(2)}</span></div>}
+                              {toNum(record.otherDeductions) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Other Deductions</span><span className="text-red-600">{toNum(record.otherDeductions).toFixed(2)}</span></div>}
+                              <div className="border-t pt-1 mt-1 flex justify-between text-sm font-bold"><span>Total Deductions</span><span className="text-red-700">{toNum(record.totalDeductions).toFixed(2)}</span></div>
                             </div>
 
-                            <div className="space-y-2">
-                              <label className="text-xs font-medium text-red-600">EXTRA DEDUCTIONS</label>
-                              <Input 
-                                type="number" 
-                                className="h-9" 
-                                value={record.otherDeductions} 
-                                disabled={isLocked}
-                                onChange={(e) => updateLocalField(record.id, "otherDeductions", e.target.value)}
-                              />
+                            {/* NET PAY + EDITABLE FIELDS */}
+                            <div className="space-y-4">
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                                <p className="text-xs text-muted-foreground uppercase">Net Salary</p>
+                                <p className="text-2xl font-bold text-blue-700">{toNum(record.netSalary).toFixed(2)}</p>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-medium text-green-600">BONUS / ALLOWANCE</label>
+                                <Input
+                                  type="number"
+                                  className="h-9"
+                                  value={record.otherAllowances}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateLocalField(record.id, "otherAllowances", e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-medium text-red-600">EXTRA DEDUCTIONS</label>
+                                <Input
+                                  type="number"
+                                  className="h-9"
+                                  value={record.otherDeductions}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateLocalField(record.id, "otherDeductions", e.target.value)}
+                                />
+                              </div>
                             </div>
 
                           </div>
                         </TableCell>
                       </TableRow>
                     )}
+
                   </Fragment>
                 );
               })}

@@ -133,42 +133,42 @@ export default function PayrollHistoryPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Employee</TableHead>
-                    <TableHead>Gross</TableHead>
-                    <TableHead>Deductions</TableHead>
-                    <TableHead>Bonus</TableHead>
-                    <TableHead>Net Pay</TableHead>
+                    <TableHead className="text-right">Gross</TableHead>
+                    <TableHead className="text-right">PF</TableHead>
+                    <TableHead className="text-right">ESI</TableHead>
+                    <TableHead className="text-right">PT</TableHead>
+                    <TableHead className="text-right">TDS</TableHead>
+                    <TableHead className="text-right">LOP Ded.</TableHead>
+                    <TableHead className="text-right">Other Ded.</TableHead>
+                    <TableHead className="text-right">Total Ded.</TableHead>
+                    <TableHead className="text-right">Bonus</TableHead>
+                    <TableHead className="text-right font-bold">Net Pay</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summary.records.map((rec: any) => {
-                    // Calculate safely
-                    const gross = toNum(rec.grossSalary);
-                    const bonus = toNum(rec.otherAllowances);
-                    const lopDays = toNum(rec.lopDays);
-                    const otherDed = toNum(rec.otherDeductions);
-                    const net = toNum(rec.netSalary);
-                    
-                    // Calculate LOP Amount: (Gross / 30) * LOP Days
-                    // Note: Use Gross or Basic depending on your policy. Assuming Gross for MVP.
-                    const lopAmount = (gross / 30) * lopDays;
-                    const totalDeductions = otherDed + lopAmount;
-
-                    return (
-                      <TableRow key={rec.id}>
-                        <TableCell className="font-medium">
-                          {rec.employee.firstName} {rec.employee.lastName}
-                        </TableCell>
-                        <TableCell>₹{gross.toFixed(2)}</TableCell>
-                        <TableCell className="text-red-500">-₹{totalDeductions.toFixed(2)}</TableCell>
-                        <TableCell className="text-green-600">+₹{bonus.toFixed(2)}</TableCell>
-                        <TableCell className="font-bold">₹{net.toFixed(2)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {summary.records.map((rec: any) => (
+                    <TableRow key={rec.id}>
+                      <TableCell className="font-medium">
+                        {rec.employee.firstName} {rec.employee.lastName}
+                        <div className="text-xs text-muted-foreground">{rec.employee.employeeCode}</div>
+                      </TableCell>
+                      <TableCell className="text-right">{toNum(rec.grossSalary).toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-red-500">{toNum(rec.providentFund).toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-red-500">{toNum(rec.esi) > 0 ? toNum(rec.esi).toFixed(2) : "-"}</TableCell>
+                      <TableCell className="text-right text-red-500">{toNum(rec.professionalTax) > 0 ? toNum(rec.professionalTax).toFixed(2) : "-"}</TableCell>
+                      <TableCell className="text-right text-red-500">{toNum(rec.incomeTax) > 0 ? toNum(rec.incomeTax).toFixed(2) : "-"}</TableCell>
+                      <TableCell className="text-right text-red-500">{toNum(rec.lopDeduction) > 0 ? toNum(rec.lopDeduction).toFixed(2) : "-"}</TableCell>
+                      <TableCell className="text-right text-red-500">{toNum(rec.otherDeductions) > 0 ? toNum(rec.otherDeductions).toFixed(2) : "-"}</TableCell>
+                      <TableCell className="text-right text-red-700 font-medium">{toNum(rec.totalDeductions).toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-green-600">{toNum(rec.otherAllowances) > 0 ? `+${toNum(rec.otherAllowances).toFixed(2)}` : "-"}</TableCell>
+                      <TableCell className="text-right font-bold">₹{toNum(rec.netSalary).toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
           )}
+
         </Card>
       ))}
     </div>
