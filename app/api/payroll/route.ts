@@ -88,7 +88,10 @@ export async function POST(request: NextRequest) {
       const existing = await prisma.payrollRecord.findFirst({
         where: { employeeId: employee.id, year, month }
       });
-      if (existing) continue;
+      if (existing) {
+        if (existing.status === "PROCESSED" || existing.status === "PAID") continue;
+        await prisma.payrollRecord.delete({ where: { id: existing.id } });
+      }
 
       if (!employee.salary) continue; 
 

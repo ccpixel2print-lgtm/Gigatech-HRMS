@@ -99,19 +99,37 @@ export async function PATCH(
         });
       }
 
-      // 2. Update Salary Table
+      // 2. Update Salary Table (with recalculated totals)
       if (basicSalary !== undefined) {
+        const newBasic = Number(basicSalary);
+        const newHra = Number(hra || 0);
+        const newDa = Number(da || 0);
+        const newTa = Number(ta || 0);
+        const newPf = Number(pf || 0);
+        const newEsi = Number(esi || 0);
+        const newSpecial = Number(specialAllowance || 0);
+        const newPt = Number(professionalTax || 0);
+
+        const newGross = newBasic + newHra + newDa + newTa + newSpecial;
+        const newDeductions = newPf + newEsi + newPt;
+        const newNetMonthly = newGross - newDeductions;
+        const newNetAnnual = newNetMonthly * 12;
+        const newCtcAnnual = newGross * 12;
+
         await tx.employeeSalary.update({
           where: { employeeId: parseInt(id) },
           data: {
-            basicSalary: Number(basicSalary),
-            hra: Number(hra || 0),
-            da: Number(da || 0),
-            ta: Number(ta || 0),
-            providentFund: Number(pf || 0),
-            esi: Number(esi || 0),
-            specialAllowance: Number(specialAllowance || 0),
-            professionalTax: Number(professionalTax || 0),
+            basicSalary: newBasic,
+            hra: newHra,
+            da: newDa,
+            ta: newTa,
+            providentFund: newPf,
+            esi: newEsi,
+            specialAllowance: newSpecial,
+            professionalTax: newPt,
+            ctcAnnual: newCtcAnnual,
+            netSalaryAnnual: newNetAnnual,
+            netSalaryMonthly: newNetMonthly,
           },
         });
       }

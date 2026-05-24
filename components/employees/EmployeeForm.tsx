@@ -76,7 +76,7 @@ export function EmployeeForm({ initialData, readOnly = false }: EmployeeFormProp
     hra: Number(initialData?.salary?.hra || initialData?.hra || 0),
     da: Number(initialData?.salary?.da || initialData?.da || 0),
     ta: Number(initialData?.salary?.ta || initialData?.ta || 0),
-    pf: Number(initialData?.salary?.pf || initialData?.pf || 0),
+    pf: Number(initialData?.salary?.providentFund || initialData?.pf || 0),
     esi: Number(initialData?.salary?.esi || initialData?.esi || 0),
     specialAllowance: Number(initialData?.salary?.specialAllowance || initialData?.specialAllowance || 0),
     professionalTax: Number(initialData?.salary?.professionalTax || initialData?.professionalTax || 0),
